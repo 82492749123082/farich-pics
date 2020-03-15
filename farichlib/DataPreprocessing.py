@@ -53,11 +53,11 @@ class DataPreprocessing():
         Y = np.concatenate((Y, y))
         return board, Y
     
-    def generate_board(self, leng, N_circles, noise_level):
-        newboard = np.zeros((leng, leng))
+    def generate_board(self, board_size, N_circles, noise_level):
+        newboard = np.zeros((board_size, board_size))
         Y_res = np.array([])
         
-        max_index = N_circles if N_circles > self.y.shape[0] else self.y.shape[0]
+        max_index = N_circles if N_circles < self.y.shape[0] else self.y.shape[0]
         for loc_ind in range(0, max_index):
             if loc_ind % 200 == 0:
                 print(loc_ind)
