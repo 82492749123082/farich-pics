@@ -1,7 +1,5 @@
 import pytest
 import sys
-
-sys.path.append(".")
 from farichlib.DataPreprocessing import DataPreprocessing
 
 

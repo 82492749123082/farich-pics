@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 from scipy import sparse
 import pickle
-import re
 
 
 class DataPreprocessing:
@@ -112,7 +111,7 @@ class DataPreprocessing:
             pickle.dump((self.X, self.y), f)
         return
 
-    def parse_pickle(self, pickleFiles):
+    def parse_pickle(self, *pickleFiles):
         for pickleFile in pickleFiles:
             with open(pickleFile, "rb") as f:
                 X, y = pickle.load(f)
