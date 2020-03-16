@@ -3,5 +3,6 @@ python:
   - "3.6"
 install:
   - pip install uproot
+  - pip install pandas
 script:
   - python -m pytest
