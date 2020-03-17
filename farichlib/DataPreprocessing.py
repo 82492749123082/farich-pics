@@ -4,6 +4,7 @@ import numpy as np
 import random
 from scipy import sparse
 import pickle
+import matplotlib.pyplot as plt
 
 
 class DataPreprocessing:
@@ -137,7 +138,7 @@ class DataPreprocessing:
         Y = np.concatenate((Y, y))
         return board, Y
 
-    def generate_board(self, board_size, N_circles, noise_level):
+    def generate_board(self, board_size, N_circles, random_seed=0, shuffle=False):
         newboard = np.zeros((board_size, board_size))
         Y_res = np.array([])
 
@@ -146,8 +147,8 @@ class DataPreprocessing:
             if loc_ind % 200 == 0:
                 print(loc_ind)
             H = self.X[loc_ind].toarray()
-            arr = self.y[loc_ind]
-            newboard, Y_res = self.add_to_board(newboard, Y_res, H, arr)
+            h = self.y[loc_ind]
+            newboard, Y_res = self.add_to_board(newboard, Y_res, H, h)
         Y_res = np.reshape(Y_res, (-1, 3))
         return newboard, Y_res
 
@@ -156,3 +157,19 @@ if __name__ == "__main__":
     DP = DataPreprocessing()
     DP.parse_root("../data/farichSimRes_pi-kaon-_1000MeV_0-90deg_50.0k_2020-02-11.root")
     print(DP.get_images())
+
+def add_noise(board, noise_level=0.001):
+    #some code
+    return board
+    
+def print_board(H, h):
+    xedges = np.linspace(0, H.shape[0], H.shape[0])
+    yedges = np.linspace(0, H.shape[1], H.shape[1])
+    
+    fig = plt.figure(frameon=False, figsize=(50, 50) )
+    ax = plt.Axes(fig, [0., 0., 1., (H.shape[1]/H.shape[0])])
+    fig.add_axes(ax)
+    X, Y = np.meshgrid(xedges, yedges)
+    ax.pcolormesh(X, Y, H, cmap='gray')
+    h = np.reshape(h, (-1,3))
+    plt.scatter(h[:,0], h[:,1], marker='+', s=550, c='red') #mean vertex
