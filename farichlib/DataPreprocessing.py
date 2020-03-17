@@ -5,7 +5,7 @@ import random
 from scipy import sparse
 import pickle
 import matplotlib.pyplot as plt
-
+from numba import jit
 
 class DataPreprocessing:
     def get_axis_size(self, x_center, x_size, pmt_size, gap, chip_size, chip_num_size):
@@ -119,34 +119,29 @@ class DataPreprocessing:
 
     def get_images(self):
         return (self.X, self.y)
-
+    
+    @jit
     def add_to_board(self, board, Y, arr, y):
         board_size = board.shape[0]
         arr_size = arr.shape[0]
-        # xc, yc - center of circle in coordinates of small square
-        xc, yc = y[0], y[1]
-        # x1, y1 - top left angle of square
-        x1 = random.randint(-xc, board_size - 1 - xc)
-        y1 = random.randint(-yc, board_size - 1 - yc)
-        # print(x1, y1)
-        for i in range(0, arr_size):
-            for j in range(0, arr_size):
-                if x1 + i in range(0, board_size) and y1 + j in range(0, board_size):
-                    board[x1 + i][y1 + j] += arr[i][j]
-        # print(x1+y[0], y1+y[1])
+        x1 = random.randint(0, board_size - 1 - arr_size)
+        y1 = random.randint(0, board_size - 1 - arr_size)
+        
+        board.data = np.concatenate((board.data, arr.data))
+        board.row = np.concatenate((board.row, arr.row+x1))
+        board.col = np.concatenate((board.col, arr.col+y1))
+
         y = np.array([y[1] + y1, y[0] + x1, y[2]])
         Y = np.concatenate((Y, y))
         return board, Y
 
     def generate_board(self, board_size, N_circles, random_seed=0, shuffle=False):
-        newboard = np.zeros((board_size, board_size))
+        newboard = sparse.coo_matrix((np.array([]), (np.array([]), np.array([]))), shape=(board_size, board_size))
         Y_res = np.array([])
 
         max_index = N_circles if N_circles < self.y.shape[0] else self.y.shape[0]
         for loc_ind in range(0, max_index):
-            if loc_ind % 200 == 0:
-                print(loc_ind)
-            H = self.X[loc_ind].toarray()
+            H = self.X[loc_ind]
             h = self.y[loc_ind]
             newboard, Y_res = self.add_to_board(newboard, Y_res, H, h)
         Y_res = np.reshape(Y_res, (-1, 3))
@@ -163,6 +158,7 @@ def add_noise(board, noise_level=0.001):
     return board
     
 def print_board(H, h):
+    H = H.toarray()
     xedges = np.linspace(0, H.shape[0], H.shape[0])
     yedges = np.linspace(0, H.shape[1], H.shape[1])
     
