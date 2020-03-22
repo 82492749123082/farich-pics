@@ -167,3 +167,16 @@ def print_board(H, h):
     h = np.reshape(h, (-1,3))
     plt.scatter(h[:,0], h[:,1], marker='+', s=550, c='red') #mean vertex
     return
+
+def create_mask(board_size, Y_res):
+    #now only for circles
+    x = np.linspace(0, board_size, board_size)
+    y = np.linspace(0, board_size, board_size)[:, None]
+    mask_joined = []
+    for index in range(Y_res.shape[0]):
+        x0 = Y_res[index][0]
+        y0 = Y_res[index][1]
+        R = Y_res[index][2]
+        circle = ((x-x0)**2+(y-y0)**2 <= R**2)
+        mask_joined.append(sparse.csr_matrix(circle)) 
+    return mask_joined
