@@ -139,8 +139,8 @@ class DataPreprocessing:
         newboard = sparse.coo_matrix((np.array([]), (np.array([]), np.array([]))), shape=(board_size, board_size))
         Y_res = np.array([])
 
-        max_index = N_circles if N_circles < self.y.shape[0] else self.y.shape[0]
-        for loc_ind in range(0, max_index):
+        indices = np.random.randint(low=0, high=self.y.shape[0], size=N_circles)
+        for loc_ind in indices:
             H = self.X[loc_ind]
             h = self.y[loc_ind]
             newboard, Y_res = self.add_to_board(newboard, Y_res, H, h)
@@ -153,9 +153,6 @@ if __name__ == "__main__":
     DP.parse_root("../data/farichSimRes_pi-kaon-_1000MeV_0-90deg_50.0k_2020-02-11.root")
     print(DP.get_images())
 
-def add_noise(board, noise_level=0.001):
-    #some code
-    return board
     
 def print_board(H, h):
     H = H.toarray()
@@ -169,3 +166,4 @@ def print_board(H, h):
     ax.pcolormesh(X, Y, H, cmap='gray')
     h = np.reshape(h, (-1,3))
     plt.scatter(h[:,0], h[:,1], marker='+', s=550, c='red') #mean vertex
+    return
