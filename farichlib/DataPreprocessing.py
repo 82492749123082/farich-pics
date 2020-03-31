@@ -101,7 +101,7 @@ class DataPreprocessing:
                 .agg({"px": "mean", "py": "mean", "radius": "median"})
                 .values
             )
-
+            
             self.__write_data(X, y)
         return
 
@@ -146,14 +146,38 @@ class DataPreprocessing:
             newboard, Y_res = self.add_to_board(newboard, Y_res, H, h)
         Y_res = np.reshape(Y_res, (-1, 3))
         return newboard, Y_res
-
-
+    
+    def generate_boards(self, board_size, N_circles, N_boards):
+        H_all = []
+        h_all = []
+        mask_all = []
+        for i in range(0, N_boards):
+            if i % 5000 == 0:
+                print(i)
+            board, Y_res = self.generate_board(board_size=board_size, N_circles=N_circles)
+            H_all.append(board)
+            h_all.append(Y_res)
+            mask_all.append( create_mask(board_size=board_size, Y_res = Y_res) )
+        return H_all, h_all, mask_all
+                        
 if __name__ == "__main__":
     DP = DataPreprocessing()
     DP.parse_root("../data/farichSimRes_pi-kaon-_1000MeV_0-90deg_50.0k_2020-02-11.root")
     print(DP.get_images())
 
-    
+def create_mask(board_size, Y_res):
+    #now only for circles
+    x = np.linspace(0, board_size, board_size)
+    y = np.linspace(0, board_size, board_size)[:, None]
+    mask_joined = []
+    for index in range(Y_res.shape[0]):
+        x0 = Y_res[index][0]
+        y0 = Y_res[index][1]
+        R = Y_res[index][2]
+        circle = ((x-x0)**2+(y-y0)**2 <= R**2)
+        mask_joined.append(sparse.csr_matrix(circle)) 
+        return mask_joined
+
 def print_board(H, h):
     H = H.toarray()
     xedges = np.linspace(0, H.shape[0], H.shape[0])
@@ -167,16 +191,3 @@ def print_board(H, h):
     h = np.reshape(h, (-1,3))
     plt.scatter(h[:,0], h[:,1], marker='+', s=550, c='red') #mean vertex
     return
-
-def create_mask(board_size, Y_res):
-    #now only for circles
-    x = np.linspace(0, board_size, board_size)
-    y = np.linspace(0, board_size, board_size)[:, None]
-    mask_joined = []
-    for index in range(Y_res.shape[0]):
-        x0 = Y_res[index][0]
-        y0 = Y_res[index][1]
-        R = Y_res[index][2]
-        circle = ((x-x0)**2+(y-y0)**2 <= R**2)
-        mask_joined.append(sparse.csr_matrix(circle)) 
-    return mask_joined
