@@ -4,10 +4,11 @@ import numpy as np
 
 
 class Dataset(torch.utils.data.Dataset):
-    def __init__(self):
+    def __init__(self, noise_level=0):
         self.imgs = None
         self.masks = None
         self.circles = None
+        self.noise = noise_level if noise_level > 0 else 0
 
     def load(self, file):
         with open(file, "rb") as f:
@@ -18,6 +19,9 @@ class Dataset(torch.utils.data.Dataset):
     def __getitem__(self, index):
         imgs, masks, circles = self.imgs, self.masks, self.circles
         img = torch.FloatTensor(imgs[index].toarray()).unsqueeze(0)
+        if self.noise > 0:
+            img += torch.rand_like(img) < self.noise
+
         n_circles = len(circles[index])
         x = circles[index][:, 0]
         y = circles[index][:, 1]
