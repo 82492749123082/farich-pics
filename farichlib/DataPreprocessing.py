@@ -191,3 +191,4 @@ def print_board(H, h):
     h = np.reshape(h, (-1,3))
     plt.scatter(h[:,0], h[:,1], marker='+', s=550, c='red') #mean vertex
     return
+
