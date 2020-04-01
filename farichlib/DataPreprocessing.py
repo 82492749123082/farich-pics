@@ -7,6 +7,7 @@ import pickle
 import matplotlib.pyplot as plt
 from numba import jit
 
+
 class DataPreprocessing:
     def get_axis_size(self, x_center, x_size, pmt_size, gap, chip_size, chip_num_size):
         xmin = x_center - (x_size * pmt_size + (x_size - 1) * gap + chip_size) / 2
@@ -101,7 +102,7 @@ class DataPreprocessing:
                 .agg({"px": "mean", "py": "mean", "radius": "median"})
                 .values
             )
-            
+
             self.__write_data(X, y)
         return
 
@@ -119,24 +120,26 @@ class DataPreprocessing:
 
     def get_images(self):
         return (self.X, self.y)
-    
+
     @jit
     def add_to_board(self, board, Y, arr, y):
         board_size = board.shape[0]
         arr_size = arr.shape[0]
         x1 = random.randint(0, board_size - 1 - arr_size)
         y1 = random.randint(0, board_size - 1 - arr_size)
-        
+
         board.data = np.concatenate((board.data, arr.data))
-        board.row = np.concatenate((board.row, arr.row+x1))
-        board.col = np.concatenate((board.col, arr.col+y1))
+        board.row = np.concatenate((board.row, arr.row + x1))
+        board.col = np.concatenate((board.col, arr.col + y1))
 
         y = np.array([y[1] + y1, y[0] + x1, y[2]])
         Y = np.concatenate((Y, y))
         return board, Y
 
     def generate_board(self, board_size, N_circles, random_seed=0, shuffle=False):
-        newboard = sparse.coo_matrix((np.array([]), (np.array([]), np.array([]))), shape=(board_size, board_size))
+        newboard = sparse.coo_matrix(
+            (np.array([]), (np.array([]), np.array([]))), shape=(board_size, board_size)
+        )
         Y_res = np.array([])
 
         indices = np.random.randint(low=0, high=self.y.shape[0], size=N_circles)
@@ -146,7 +149,7 @@ class DataPreprocessing:
             newboard, Y_res = self.add_to_board(newboard, Y_res, H, h)
         Y_res = np.reshape(Y_res, (-1, 3))
         return newboard, Y_res
-    
+
     def generate_boards(self, board_size, N_circles, N_boards):
         H_all = []
         h_all = []
@@ -154,19 +157,23 @@ class DataPreprocessing:
         for i in range(0, N_boards):
             if i % 5000 == 0:
                 print(i)
-            board, Y_res = self.generate_board(board_size=board_size, N_circles=N_circles)
+            board, Y_res = self.generate_board(
+                board_size=board_size, N_circles=N_circles
+            )
             H_all.append(board)
             h_all.append(Y_res)
-            mask_all.append( create_mask(board_size=board_size, Y_res = Y_res) )
+            mask_all.append(create_mask(board_size=board_size, Y_res=Y_res))
         return H_all, h_all, mask_all
-                        
+
+
 if __name__ == "__main__":
     DP = DataPreprocessing()
     DP.parse_root("../data/farichSimRes_pi-kaon-_1000MeV_0-90deg_50.0k_2020-02-11.root")
     print(DP.get_images())
 
+
 def create_mask(board_size, Y_res):
-    #now only for circles
+    # now only for circles
     x = np.linspace(0, board_size, board_size)
     y = np.linspace(0, board_size, board_size)[:, None]
     mask_joined = []
@@ -174,21 +181,22 @@ def create_mask(board_size, Y_res):
         x0 = Y_res[index][0]
         y0 = Y_res[index][1]
         R = Y_res[index][2]
-        circle = ((x-x0)**2+(y-y0)**2 <= R**2)
-        mask_joined.append(sparse.csr_matrix(circle)) 
+        circle = (x - x0) ** 2 + (y - y0) ** 2 <= R ** 2
+        mask_joined.append(sparse.csr_matrix(circle))
         return mask_joined
+
 
 def print_board(H, h):
     H = H.toarray()
     xedges = np.linspace(0, H.shape[0], H.shape[0])
     yedges = np.linspace(0, H.shape[1], H.shape[1])
-    
-    fig = plt.figure(frameon=False, figsize=(50, 50) )
-    ax = plt.Axes(fig, [0., 0., 1., (H.shape[1]/H.shape[0])])
+
+    fig = plt.figure(frameon=False, figsize=(50, 50))
+    ax = plt.Axes(fig, [0.0, 0.0, 1.0, (H.shape[1] / H.shape[0])])
     fig.add_axes(ax)
     X, Y = np.meshgrid(xedges, yedges)
-    ax.pcolormesh(X, Y, H, cmap='gray')
-    h = np.reshape(h, (-1,3))
-    plt.scatter(h[:,0], h[:,1], marker='+', s=550, c='red') #mean vertex
+    ax.pcolormesh(X, Y, H, cmap="gray")
+    h = np.reshape(h, (-1, 3))
+    plt.scatter(h[:, 0], h[:, 1], marker="+", s=550, c="red")  # mean vertex
     return
 
