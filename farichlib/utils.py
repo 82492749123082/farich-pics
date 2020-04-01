@@ -11,6 +11,8 @@ import torch.distributed as dist
 import errno
 import os
 
+import numpy as np
+from scipy import sparse
 
 class SmoothedValue(object):
     """Track a series of values and provide access to smoothed values over a
@@ -350,3 +352,13 @@ def init_distributed_mode(args):
     )
     torch.distributed.barrier()
     setup_for_distributed(args.rank == 0)
+
+
+def iou_score(mask1, mask2):
+    mask1_ = mask1.toarray()
+    mask2_ = mask2.toarray()
+    intersection = mask1_&mask2_
+    union = mask1_|mask2_
+    n_intersection = np.count_nonzero(intersection)
+    n_union = np.count_nonzero(union)
+    return n_intersection/n_union
