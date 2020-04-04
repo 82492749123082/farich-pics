@@ -1,37 +1,31 @@
-## Welcome to GitHub Pages
+# FARICH-pics
 
-You can use the [editor on GitHub](https://github.com/82492749123082/farich-pics/edit/master/README.md) to maintain and preview the content for your website in Markdown files.
+[![Build Status](https://travis-ci.com/82492749123082/farich-pics.svg?branch=dev)](https://travis-ci.com/82492749123082/farich-pics)
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
+Rings detection for FARICH
 
-### Markdown
+## Neural network (nn)
 
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
+We have trained nn to detect rings with [this tutorial](https://pytorch.org/tutorials/intermediate/torchvision_tutorial.html).
 
-```markdown
-Syntax highlighted code block
+Dataset contains **100x100px** boards with **one ring** on each and uniform **noise 1%**.
 
-# Header 1
-## Header 2
-### Header 3
+Technical details you can see in [the notebook](notebooks/CirclesNN.ipynb)
 
-- Bulleted
-- List
+### Results
 
-1. Numbered
-2. List
+Precision and recall vs treshold predictor score:
+![superiority](page/score.png)
 
-**Bold** and _Italic_ and `Code` text
+Some detection examples
 
-[Link](url) and ![Image](src)
-```
+Good/perfect examples:
+![good guy](page/TP1.png)
+![good guy](page/TP2.png)
+![good guy](page/TP3.png)
+![good guy](page/TP4.png)
 
-For more details see [GitHub Flavored Markdown](https://guides.github.com/features/mastering-markdown/).
+Bad example:
+![bad guy](page/FN1.png)
 
-### Jekyll Themes
-
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/82492749123082/farich-pics/settings). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
-
-### Support or Contact
-
-Having trouble with Pages? Check out our [documentation](https://help.github.com/categories/github-pages-basics/) or [contact support](https://github.com/contact) and we’ll help you sort it out.
+Most problems from such images but even we cannot detect there rings. Why should nn?
