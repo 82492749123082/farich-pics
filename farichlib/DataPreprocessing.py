@@ -165,6 +165,22 @@ class DataPreprocessing:
             mask_all.append(create_mask(board_size=board_size, Y_res=Y_res))
         return H_all, h_all, mask_all
 
+    def generate_boards_randnum(self, board_size, N_circles, N_boards):
+        H_all = []
+        h_all = []
+        mask_all = []
+        for i in range(0, N_boards):
+            if i % 5000 == 0:
+                print(i)
+            N_circles_rdm = random.randint(0, N_circles + 1)
+            board, Y_res = self.generate_board(
+                board_size=board_size, N_circles=N_circles_rdm
+            )
+            H_all.append(board)
+            h_all.append(Y_res)
+            mask_all.append(create_mask(board_size=board_size, Y_res=Y_res))
+        return H_all, h_all, mask_all
+
 
 if __name__ == "__main__":
     DP = DataPreprocessing()
