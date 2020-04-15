@@ -124,15 +124,28 @@ class DataPreprocessing:
     @jit
     def add_to_board(self, board, Y, arr, y):
         board_size = board.shape[0]
-        arr_size = arr.shape[0]
-        x1 = random.randint(0, board_size - 1 - arr_size)
-        y1 = random.randint(0, board_size - 1 - arr_size)
+        # cropping self.X arrays to get better result  
+        xc = y[0]
+        yc = y[1]
+        r = y[2]
+        xlow = int(xc - 1.5*r) if (xc - 1.5*r > 0) else 0
+        xhigh = int(xc + 1.5*r) if (xc + 1.5*r < arr.shape[0]) else (arr.shape[0]-1) 
+        ylow = int(yc - 1.5*r) if (yc - 1.5*r > 0) else 0
+        yhigh = int(yc + 1.5*r) if (yc + 1.5*r < arr.shape[1]) else (arr.shape[1]-1) 
+        arr_ = arr.toarray()[xlow:xhigh, ylow:yhigh]        
+        arr = sparse.coo_matrix(arr_)        
+        xc = xc - xlow
+        yc = yc - ylow
+        
+        
+        x1 = random.randint(0, board.shape[0] - 1 - arr.shape[0])
+        y1 = random.randint(0, board.shape[1] - 1 - arr.shape[1])
 
         board.data = np.concatenate((board.data, arr.data))
         board.row = np.concatenate((board.row, arr.row + x1))
         board.col = np.concatenate((board.col, arr.col + y1))
 
-        y = np.array([y[1] + y1, y[0] + x1, y[2]])
+        y = np.array([yc + y1, xc + x1, r])
         Y = np.concatenate((Y, y))
         return board, Y
 
@@ -165,6 +178,22 @@ class DataPreprocessing:
             mask_all.append(create_mask(board_size=board_size, Y_res=Y_res))
         return H_all, h_all, mask_all
 
+    def generate_boards_randnum(self, board_size, N_circles, N_boards):
+        H_all = []
+        h_all = []
+        mask_all = []
+        for i in range(0, N_boards):
+            if i % 5000 == 0:
+                print(i)
+            N_circles_rdm = random.randint(1, N_circles)
+            board, Y_res = self.generate_board(
+                board_size=board_size, N_circles=N_circles_rdm
+            )
+            H_all.append(board)
+            h_all.append(Y_res)
+            mask_all.append(create_mask(board_size=board_size, Y_res=Y_res))
+        return H_all, h_all, mask_all
+
 
 if __name__ == "__main__":
     DP = DataPreprocessing()
@@ -177,13 +206,14 @@ def create_mask(board_size, Y_res):
     x = np.linspace(0, board_size, board_size)
     y = np.linspace(0, board_size, board_size)[:, None]
     mask_joined = []
+    #print(Y_res.shape[0])
     for index in range(Y_res.shape[0]):
         x0 = Y_res[index][0]
         y0 = Y_res[index][1]
         R = Y_res[index][2]
         circle = (x - x0) ** 2 + (y - y0) ** 2 <= R ** 2
         mask_joined.append(sparse.csr_matrix(circle))
-        return mask_joined
+    return mask_joined
 
 
 def print_board(H, h):
@@ -191,7 +221,8 @@ def print_board(H, h):
     xedges = np.linspace(0, H.shape[0], H.shape[0])
     yedges = np.linspace(0, H.shape[1], H.shape[1])
 
-    fig = plt.figure(frameon=False, figsize=(50, 50))
+#    fig = plt.figure(frameon=False, figsize=(50, 50))
+    fig = plt.figure(frameon=False, figsize=(5, 5))
     ax = plt.Axes(fig, [0.0, 0.0, 1.0, (H.shape[1] / H.shape[0])])
     fig.add_axes(ax)
     X, Y = np.meshgrid(xedges, yedges)
