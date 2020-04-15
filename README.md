@@ -1,6 +1,7 @@
 # FARICH-pics
 
 [![Build Status](https://travis-ci.com/82492749123082/farich-pics.svg?branch=dev)](https://travis-ci.com/82492749123082/farich-pics)
+[![Quick run in Colab (dev-ветка)](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/82492749123082/farich-pics/blob/dev/notebooks/CirclesNN.ipynb) 
 
 Rings detection for FARICH
 
@@ -11,6 +12,7 @@ We have trained nn to detect rings with [this tutorial](https://pytorch.org/tuto
 Dataset contains **100x100px** boards with **one ring** on each and uniform **noise 1%**.
 
 Technical details you can see in [the notebook](notebooks/CirclesNN.ipynb)
+[![Quick run in Colab (dev-ветка)](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/82492749123082/farich-pics/blob/dev/notebooks/CirclesNN.ipynb) 
 
 ### Results
 
