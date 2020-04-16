@@ -14,6 +14,7 @@ import os
 import numpy as np
 from scipy import sparse
 
+
 class SmoothedValue(object):
     """Track a series of values and provide access to smoothed values over a
     window or the global series average.
@@ -357,8 +358,58 @@ def init_distributed_mode(args):
 def iou_score(mask1, mask2):
     mask1_ = mask1.toarray()
     mask2_ = mask2.toarray()
-    intersection = mask1_&mask2_
-    union = mask1_|mask2_
+    intersection = mask1_ & mask2_
+    union = mask1_ | mask2_
     n_intersection = np.count_nonzero(intersection)
     n_union = np.count_nonzero(union)
-    return n_intersection/n_union
+    return n_intersection / n_union
+
+
+def show_nn_result(model, dataset_test, threshold_predictor_score=0.9):
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    # pick one image from the test set
+    img, bbox = dataset_test
+    # put the model in evaluation mode
+    model.eval()
+    with torch.no_grad():
+        prediction = model([img.to(device)])
+
+    f, (ax2, ax) = plt.subplots(1, 2, sharey=True, figsize=(15, 15), dpi=100)
+
+    H = img.squeeze(0).numpy()
+
+    ax.set_aspect(H.shape[1] / H.shape[0])
+    ax2.set_aspect(H.shape[1] / H.shape[0])
+
+    ax.title.set_text("NN response")
+    ax2.title.set_text("Real data")
+
+    masks = prediction[0]["masks"][prediction[0]["scores"] > threshold_predictor_score]
+    bboxes = prediction[0]["boxes"][prediction[0]["scores"] > threshold_predictor_score]
+    scores = prediction[0]["scores"][
+        prediction[0]["scores"] > threshold_predictor_score
+    ]
+
+    xedges = np.linspace(0, H.shape[0], H.shape[0])
+    yedges = np.linspace(0, H.shape[1], H.shape[1])
+    Xg, Yg = np.meshgrid(xedges, yedges)
+
+    for a in (ax, ax2):
+        a.title.set_size(20)
+        a.set_axis_off()
+        a.pcolormesh(Xg, Yg, H, cmap="gray")
+
+    for mask, bbx, score in zip(masks, bboxes, scores):
+        m = mask[0].cpu().numpy()
+        b = bbx.cpu().numpy()
+        ax.pcolormesh(Xg, Yg, m, cmap="gnuplot2", alpha=0.3)
+        ax.add_patch(
+            Rectangle((b[0], b[1]), b[2] - b[0], b[3] - b[1], ec="r", fc="none")
+        )
+        ax.annotate(
+            f"Pred. score: {score.item():.2f}", (b[0], b[3] + 1), color="r", size=16
+        )
+
+    for bx in bbox["masks"]:
+        ax2.pcolormesh(Xg, Yg, bx.numpy(), cmap="gnuplot", alpha=0.1)
+    return
