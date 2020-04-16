@@ -121,23 +121,26 @@ class DataPreprocessing:
     def get_images(self):
         return (self.X, self.y)
 
-    @jit
+    @jit(nopython=True)
     def add_to_board(self, board, Y, arr, y):
         board_size = board.shape[0]
-        # cropping self.X arrays to get better result  
+        # cropping self.X arrays to get better result
         xc = y[0]
         yc = y[1]
         r = y[2]
-        xlow = int(xc - 1.5*r) if (xc - 1.5*r > 0) else 0
-        xhigh = int(xc + 1.5*r) if (xc + 1.5*r < arr.shape[0]) else (arr.shape[0]-1) 
-        ylow = int(yc - 1.5*r) if (yc - 1.5*r > 0) else 0
-        yhigh = int(yc + 1.5*r) if (yc + 1.5*r < arr.shape[1]) else (arr.shape[1]-1) 
-        arr_ = arr.toarray()[xlow:xhigh, ylow:yhigh]        
-        arr = sparse.coo_matrix(arr_)        
+        xlow = int(xc - 1.5 * r) if (xc - 1.5 * r > 0) else 0
+        xhigh = (
+            int(xc + 1.5 * r) if (xc + 1.5 * r < arr.shape[0]) else (arr.shape[0] - 1)
+        )
+        ylow = int(yc - 1.5 * r) if (yc - 1.5 * r > 0) else 0
+        yhigh = (
+            int(yc + 1.5 * r) if (yc + 1.5 * r < arr.shape[1]) else (arr.shape[1] - 1)
+        )
+        arr_ = arr.toarray()[xlow:xhigh, ylow:yhigh]
+        arr = sparse.coo_matrix(arr_)
         xc = xc - xlow
         yc = yc - ylow
-        
-        
+
         x1 = random.randint(0, board.shape[0] - 1 - arr.shape[0])
         y1 = random.randint(0, board.shape[1] - 1 - arr.shape[1])
 
@@ -206,7 +209,7 @@ def create_mask(board_size, Y_res):
     x = np.linspace(0, board_size, board_size)
     y = np.linspace(0, board_size, board_size)[:, None]
     mask_joined = []
-    #print(Y_res.shape[0])
+    # print(Y_res.shape[0])
     for index in range(Y_res.shape[0]):
         x0 = Y_res[index][0]
         y0 = Y_res[index][1]
@@ -221,7 +224,7 @@ def print_board(H, h):
     xedges = np.linspace(0, H.shape[0], H.shape[0])
     yedges = np.linspace(0, H.shape[1], H.shape[1])
 
-#    fig = plt.figure(frameon=False, figsize=(50, 50))
+    #    fig = plt.figure(frameon=False, figsize=(50, 50))
     fig = plt.figure(frameon=False, figsize=(5, 5))
     ax = plt.Axes(fig, [0.0, 0.0, 1.0, (H.shape[1] / H.shape[0])])
     fig.add_axes(ax)
@@ -230,4 +233,3 @@ def print_board(H, h):
     h = np.reshape(h, (-1, 3))
     plt.scatter(h[:, 0], h[:, 1], marker="+", s=550, c="red")  # mean vertex
     return
-
