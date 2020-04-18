@@ -6,13 +6,18 @@ from scipy import sparse
 import pickle
 import matplotlib.pyplot as plt
 from numba import jit, njit
-from numba.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning, NumbaWarning
+from numba.errors import (
+    NumbaDeprecationWarning,
+    NumbaPendingDeprecationWarning,
+    NumbaWarning,
+)
 import warnings
 
-#Suppress numba warnings
-warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
-warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
-warnings.simplefilter('ignore', category=NumbaWarning)
+# Suppress numba warnings
+warnings.simplefilter("ignore", category=NumbaDeprecationWarning)
+warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
+warnings.simplefilter("ignore", category=NumbaWarning)
+
 
 class DataPreprocessing:
     def get_axis_size(self, x_center, x_size, pmt_size, gap, chip_size, chip_num_size):
@@ -146,10 +151,7 @@ class DataPreprocessing:
         xc = xc - xlow
         yc = yc - ylow
 
-        # x1 = random.randint(0, board.shape[0] - 1 - arr.shape[0])
-        # y1 = random.randint(0, board.shape[1] - 1 - arr.shape[1])
-        x1, y1 = numpy.random.randint()
-        print(x1, y1, board.shape[0] - 1 - arr.shape[0], board.shape[1] - 1 - arr.shape[1])
+        x1, y1 = np.random.randint(0, board.shape[0] - arr.shape[0], 2)
 
         board.data = np.concatenate((board.data, arr.data))
         board.row = np.concatenate((board.row, arr.row + x1))
@@ -212,24 +214,32 @@ if __name__ == "__main__":
     DP.parse_root("../data/farichSimRes_pi-kaon-_1000MeV_0-90deg_50.0k_2020-02-11.root")
     print(DP.get_images())
 
+
 @njit
 def create_mask_addit(board_size, Y_res):
     # now only for circles
     x = np.linspace(0, board_size, board_size)
-    y = np.linspace(0, board_size, board_size).reshape((-1,1))
+    y = np.linspace(0, board_size, board_size).reshape((-1, 1))
     mask_joined = []
     for index in range(Y_res.shape[0]):
         x0 = Y_res[index][0]
         y0 = Y_res[index][1]
         R = Y_res[index][2]
-        circle = np.nonzero( (x - x0) ** 2 + (y - y0) ** 2 <= R ** 2 )
+        circle = np.nonzero((x - x0) ** 2 + (y - y0) ** 2 <= R ** 2)
         mask_joined.append(circle)
     return mask_joined
 
+
 def create_mask(board_size, Y_res):
     masks = create_mask_addit(board_size, Y_res)
-    return list(map(lambda x: sparse.csc_matrix( (np.ones(len(x[0])), x), shape=(board_size, board_size) ), masks))
-
+    return list(
+        map(
+            lambda x: sparse.csc_matrix(
+                (np.ones(len(x[0])), x), shape=(board_size, board_size)
+            ),
+            masks,
+        )
+    )
 
 
 def print_board(H, h):
