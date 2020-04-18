@@ -5,8 +5,14 @@ import random
 from scipy import sparse
 import pickle
 import matplotlib.pyplot as plt
-from numba import jit
+from numba import jit, njit
+from numba.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning, NumbaWarning
+import warnings
 
+#Suppress numba warnings
+warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
+warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
+warnings.simplefilter('ignore', category=NumbaWarning)
 
 class DataPreprocessing:
     def get_axis_size(self, x_center, x_size, pmt_size, gap, chip_size, chip_num_size):
@@ -121,7 +127,6 @@ class DataPreprocessing:
     def get_images(self):
         return (self.X, self.y)
 
-    @jit(nopython=True)
     def add_to_board(self, board, Y, arr, y):
         board_size = board.shape[0]
         # cropping self.X arrays to get better result
@@ -141,8 +146,10 @@ class DataPreprocessing:
         xc = xc - xlow
         yc = yc - ylow
 
-        x1 = random.randint(0, board.shape[0] - 1 - arr.shape[0])
-        y1 = random.randint(0, board.shape[1] - 1 - arr.shape[1])
+        # x1 = random.randint(0, board.shape[0] - 1 - arr.shape[0])
+        # y1 = random.randint(0, board.shape[1] - 1 - arr.shape[1])
+        x1, y1 = numpy.random.randint()
+        print(x1, y1, board.shape[0] - 1 - arr.shape[0], board.shape[1] - 1 - arr.shape[1])
 
         board.data = np.concatenate((board.data, arr.data))
         board.row = np.concatenate((board.row, arr.row + x1))
@@ -166,13 +173,14 @@ class DataPreprocessing:
         Y_res = np.reshape(Y_res, (-1, 3))
         return newboard, Y_res
 
+    @jit(nopython=False)
     def generate_boards(self, board_size, N_circles, N_boards):
         H_all = []
         h_all = []
         mask_all = []
         for i in range(0, N_boards):
-            if i % 5000 == 0:
-                print(i)
+            # if i % 5000 == 0:
+            #     print(i)
             board, Y_res = self.generate_board(
                 board_size=board_size, N_circles=N_circles
             )
@@ -181,6 +189,7 @@ class DataPreprocessing:
             mask_all.append(create_mask(board_size=board_size, Y_res=Y_res))
         return H_all, h_all, mask_all
 
+    @jit(nopython=False)
     def generate_boards_randnum(self, board_size, N_circles, N_boards):
         H_all = []
         h_all = []
@@ -203,20 +212,24 @@ if __name__ == "__main__":
     DP.parse_root("../data/farichSimRes_pi-kaon-_1000MeV_0-90deg_50.0k_2020-02-11.root")
     print(DP.get_images())
 
-
-def create_mask(board_size, Y_res):
+@njit
+def create_mask_addit(board_size, Y_res):
     # now only for circles
     x = np.linspace(0, board_size, board_size)
-    y = np.linspace(0, board_size, board_size)[:, None]
+    y = np.linspace(0, board_size, board_size).reshape((-1,1))
     mask_joined = []
-    # print(Y_res.shape[0])
     for index in range(Y_res.shape[0]):
         x0 = Y_res[index][0]
         y0 = Y_res[index][1]
         R = Y_res[index][2]
-        circle = (x - x0) ** 2 + (y - y0) ** 2 <= R ** 2
-        mask_joined.append(sparse.csr_matrix(circle))
+        circle = np.nonzero( (x - x0) ** 2 + (y - y0) ** 2 <= R ** 2 )
+        mask_joined.append(circle)
     return mask_joined
+
+def create_mask(board_size, Y_res):
+    masks = create_mask_addit(board_size, Y_res)
+    return list(map(lambda x: sparse.csc_matrix( (np.ones(len(x[0])), x), shape=(board_size, board_size) ), masks))
+
 
 
 def print_board(H, h):
