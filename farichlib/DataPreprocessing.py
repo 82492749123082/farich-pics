@@ -5,7 +5,18 @@ import random
 from scipy import sparse
 import pickle
 import matplotlib.pyplot as plt
-from numba import jit
+from numba import jit, njit
+from numba.errors import (
+    NumbaDeprecationWarning,
+    NumbaPendingDeprecationWarning,
+    NumbaWarning,
+)
+import warnings
+
+# Suppress numba warnings
+warnings.simplefilter("ignore", category=NumbaDeprecationWarning)
+warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
+warnings.simplefilter("ignore", category=NumbaWarning)
 
 
 class DataPreprocessing:
@@ -121,25 +132,26 @@ class DataPreprocessing:
     def get_images(self):
         return (self.X, self.y)
 
-    @jit
     def add_to_board(self, board, Y, arr, y):
         board_size = board.shape[0]
-        # cropping self.X arrays to get better result  
+        # cropping self.X arrays to get better result
         xc = y[0]
         yc = y[1]
         r = y[2]
-        xlow = int(xc - 1.5*r) if (xc - 1.5*r > 0) else 0
-        xhigh = int(xc + 1.5*r) if (xc + 1.5*r < arr.shape[0]) else (arr.shape[0]-1) 
-        ylow = int(yc - 1.5*r) if (yc - 1.5*r > 0) else 0
-        yhigh = int(yc + 1.5*r) if (yc + 1.5*r < arr.shape[1]) else (arr.shape[1]-1) 
-        arr_ = arr.toarray()[xlow:xhigh, ylow:yhigh]        
-        arr = sparse.coo_matrix(arr_)        
+        xlow = int(xc - 1.5 * r) if (xc - 1.5 * r > 0) else 0
+        xhigh = (
+            int(xc + 1.5 * r) if (xc + 1.5 * r < arr.shape[0]) else (arr.shape[0] - 1)
+        )
+        ylow = int(yc - 1.5 * r) if (yc - 1.5 * r > 0) else 0
+        yhigh = (
+            int(yc + 1.5 * r) if (yc + 1.5 * r < arr.shape[1]) else (arr.shape[1] - 1)
+        )
+        arr_ = arr.toarray()[xlow:xhigh, ylow:yhigh]
+        arr = sparse.coo_matrix(arr_)
         xc = xc - xlow
         yc = yc - ylow
-        
-        
-        x1 = random.randint(0, board.shape[0] - 1 - arr.shape[0])
-        y1 = random.randint(0, board.shape[1] - 1 - arr.shape[1])
+
+        x1, y1 = np.random.randint(0, board.shape[0] - arr.shape[0], 2)
 
         board.data = np.concatenate((board.data, arr.data))
         board.row = np.concatenate((board.row, arr.row + x1))
@@ -163,13 +175,14 @@ class DataPreprocessing:
         Y_res = np.reshape(Y_res, (-1, 3))
         return newboard, Y_res
 
+    @jit(nopython=False)
     def generate_boards(self, board_size, N_circles, N_boards):
         H_all = []
         h_all = []
         mask_all = []
         for i in range(0, N_boards):
-            if i % 5000 == 0:
-                print(i)
+            # if i % 5000 == 0:
+            #     print(i)
             board, Y_res = self.generate_board(
                 board_size=board_size, N_circles=N_circles
             )
@@ -178,6 +191,7 @@ class DataPreprocessing:
             mask_all.append(create_mask(board_size=board_size, Y_res=Y_res))
         return H_all, h_all, mask_all
 
+    @jit(nopython=False)
     def generate_boards_randnum(self, board_size, N_circles, N_boards):
         H_all = []
         h_all = []
@@ -201,19 +215,31 @@ if __name__ == "__main__":
     print(DP.get_images())
 
 
-def create_mask(board_size, Y_res):
+@njit
+def create_mask_addit(board_size, Y_res):
     # now only for circles
     x = np.linspace(0, board_size, board_size)
-    y = np.linspace(0, board_size, board_size)[:, None]
+    y = np.linspace(0, board_size, board_size).reshape((-1, 1))
     mask_joined = []
-    #print(Y_res.shape[0])
     for index in range(Y_res.shape[0]):
         x0 = Y_res[index][0]
         y0 = Y_res[index][1]
         R = Y_res[index][2]
-        circle = (x - x0) ** 2 + (y - y0) ** 2 <= R ** 2
-        mask_joined.append(sparse.csr_matrix(circle))
+        circle = np.nonzero((x - x0) ** 2 + (y - y0) ** 2 <= R ** 2)
+        mask_joined.append(circle)
     return mask_joined
+
+
+def create_mask(board_size, Y_res):
+    masks = create_mask_addit(board_size, Y_res)
+    return list(
+        map(
+            lambda x: sparse.csc_matrix(
+                (np.ones(len(x[0])), x), shape=(board_size, board_size)
+            ),
+            masks,
+        )
+    )
 
 
 def print_board(H, h):
@@ -221,7 +247,7 @@ def print_board(H, h):
     xedges = np.linspace(0, H.shape[0], H.shape[0])
     yedges = np.linspace(0, H.shape[1], H.shape[1])
 
-#    fig = plt.figure(frameon=False, figsize=(50, 50))
+    #    fig = plt.figure(frameon=False, figsize=(50, 50))
     fig = plt.figure(frameon=False, figsize=(5, 5))
     ax = plt.Axes(fig, [0.0, 0.0, 1.0, (H.shape[1] / H.shape[0])])
     fig.add_axes(ax)
@@ -230,4 +256,3 @@ def print_board(H, h):
     h = np.reshape(h, (-1, 3))
     plt.scatter(h[:, 0], h[:, 1], marker="+", s=550, c="red")  # mean vertex
     return
-
