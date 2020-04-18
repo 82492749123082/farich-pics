@@ -31,3 +31,14 @@ Bad example:
 ![bad guy](page/FN1.png)
 
 Most problems from such images but even we cannot detect there rings. Why should nn?
+
+## NN for many circles
+
+We also trained nn for many circles (see [notebook](notebooks/ManyCirclesNN.ipynb))
+[![Quick run in Colab (dev-ветка)](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/82492749123082/farich-pics/blob/dev/notebooks/ManyCirclesNN.ipynb)
+
+### Results
+Precision and recall vs treshold predictor score:
+![superiority](page/score_many_circles.png)
+ 
+
