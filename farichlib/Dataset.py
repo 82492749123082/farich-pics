@@ -14,13 +14,14 @@ class Dataset(torch.utils.data.Dataset):
         with open(file, "rb") as f:
             imgs, circles, masks = pickle.load(f)
         self.imgs, self.masks, self.circles = imgs, masks, circles
+        self.imgs = torch.Tensor([img.toarray() for img in self.imgs])
+        if self.noise > 0:
+            self.imgs += torch.Tensor(np.random.poisson(self.noise, self.imgs.shape))
         return
 
     def __getitem__(self, index):
         imgs, masks, circles = self.imgs, self.masks, self.circles
-        img = torch.FloatTensor(imgs[index].toarray()).unsqueeze(0)
-        if self.noise > 0:
-            img += torch.rand_like(img) < self.noise
+        img = imgs[index].unsqueeze(0)
 
         n_circles = len(circles[index])
         x = circles[index][:, 0]
