@@ -5,6 +5,8 @@ import random
 from scipy import sparse
 import pickle
 import matplotlib.pyplot as plt
+from matplotlib.patches import Ellipse
+import torch
 from numba import jit, njit
 from numba.errors import (
     NumbaDeprecationWarning,
@@ -209,12 +211,6 @@ class DataPreprocessing:
         return H_all, h_all, mask_all
 
 
-if __name__ == "__main__":
-    DP = DataPreprocessing()
-    DP.parse_root("../data/farichSimRes_pi-kaon-_1000MeV_0-90deg_50.0k_2020-02-11.root")
-    print(DP.get_images())
-
-
 @njit
 def create_mask_addit(board_size, Y_res):
     # now only for circles
@@ -256,3 +252,98 @@ def print_board(H, h):
     h = np.reshape(h, (-1, 3))
     plt.scatter(h[:, 0], h[:, 1], marker="+", s=550, c="red")  # mean vertex
     return
+
+
+class Augmentator:
+    photons_mean = 35
+
+    @njit
+    def add_ellipse(H, xc, yc, a, b, angle, n_photons):
+        edges = np.linspace(0, H.shape[0] - 1, H.shape[0])
+
+        n0 = n_photons
+        t = np.random.rand(n0) * 2 * np.pi
+        e = np.random.randn(2, n0) * np.array([a, b]).reshape((2, -1)) * 0.04
+        x = np.vstack((a * np.cos(t), b * np.sin(t)))
+        M = np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]])
+        center = np.array([[xc for _ in range(n0)], [yc for _ in range(n0)]])
+
+        coords = M @ x + e + center
+        coords = np.digitize(coords, edges)
+        for x0, y0 in zip(coords[0], coords[1]):
+            H[x0][y0] += 1
+        return
+
+    def get_board(H, n_ellipses, xc, yc, a, b, angle, n_photons):
+        for _, x0, y0, a0, b0, angle0, n_photons0 in zip(
+            range(n_ellipses), xc, yc, a, b, angle, n_photons
+        ):
+            Augmentator.add_ellipse(H, x0, y0, a0, b0, angle0, n_photons0)
+        return
+
+    def get_ellipse_pars(size, num_boards, n_max):
+        a = np.random.randint(5, 15, (num_boards, n_max))
+        b = np.random.randint(5, 15, (num_boards, n_max))
+        xc = np.random.randint(a + b, size - a - b, (num_boards, n_max))
+        yc = np.random.randint(a + b, size - b - a, (num_boards, n_max))
+        angle = np.random.rand(num_boards, n_max) * np.pi
+        n_photons = np.random.poisson(Augmentator.photons_mean, (num_boards, n_max))
+        return (xc, yc, a, b, angle, n_photons)
+
+    def get_y_board(n_ellipses, xc, yc, a, b, angle, n_photons):
+        n0 = n_ellipses
+        return np.vstack((xc[:n0], yc[:n0], a[:n0], b[:n0], angle[:n0])).T
+
+    def get_boards(size, num_boards, n_max):
+        H = np.zeros((num_boards, size, size), dtype=int)
+        y = []
+        n_ellipses = np.random.randint(1, n_max + 1, num_boards)
+        xc, yc, a, b, angle, n_photons = Augmentator.get_ellipse_pars(
+            size, num_boards, n_max
+        )
+        for i in range(num_boards):
+            n0 = n_ellipses[i]
+            y.append(
+                Augmentator.get_y_board(
+                    n0, xc[i], yc[i], a[i], b[i], angle[i], n_photons[i]
+                )
+            )
+            Augmentator.get_board(
+                H[i], n_ellipses[i], xc[i], yc[i], a[i], b[i], angle[i], n_photons[i]
+            )
+        return H, y
+
+    def save_data_as_torch(H, y, filename):
+        with open(filename, "wb") as f:
+            pickle.dump((torch.Tensor(H), y), f)
+        return
+
+    def print_board(H, y):
+        fig = plt.figure(frameon=False, figsize=(8, 8))
+        ax = plt.Axes(fig, [0.0, 0.0, 1.0, (H.shape[1] / H.shape[0])])
+        fig.add_axes(ax)
+
+        xedges = np.linspace(0, H.shape[0], H.shape[0])
+        yedges = np.linspace(0, H.shape[1], H.shape[1])
+        Xg, Yg = np.meshgrid(xedges, yedges)
+        ax.pcolormesh(Xg, Yg, H.T, cmap="gnuplot")
+
+        for x0, y0, a0, b0, phi0 in y:
+            e = Ellipse(
+                (x0, y0),
+                2 * a0,
+                2 * b0,
+                180 * phi0 / np.pi,
+                fill=False,
+                edgecolor="green",
+                alpha=1,
+            )
+            ax.add_artist(e)
+            plt.scatter(x0, y0, marker="+", s=150)
+        return
+
+
+if __name__ == "__main__":
+    DP = DataPreprocessing()
+    DP.parse_root("../data/farichSimRes_pi-kaon-_1000MeV_0-90deg_50.0k_2020-02-11.root")
+    print(DP.get_images())
