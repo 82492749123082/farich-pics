@@ -4,23 +4,33 @@ import numpy as np
 
 
 class Dataset(torch.utils.data.Dataset):
-    def __init__(self, noise_level=0):
+    def __init__(self, noise_level=(0, 0)):
         self.imgs = None
         self.masks = None
         self.circles = None
-        self.noise = noise_level if noise_level > 0 else 0
+        self.noise = (
+            noise_level if isinstance(noise_level, tuple) else (0, noise_level)
+        )  # min, max noise level
 
     def load(self, file):
         with open(file, "rb") as f:
-            imgs, circles, masks = pickle.load(f)
-        self.imgs, self.masks, self.circles = imgs, masks, circles
+            imgs, self.circles, self.masks = pickle.load(f)
+        self.imgs = torch.Tensor([img.toarray() for img in imgs])
+        print(self.imgs.shape)
+        if self.noise[1] > 0:
+            mean_noise = np.random.rand(self.imgs.shape[0]) * (
+                self.noise[1] - self.noise[0]
+            ) + self.noise[0] * np.ones(self.imgs.shape[0])
+            shape = (self.imgs.shape[1], self.imgs.shape[2], self.imgs.shape[0])
+            poisson = np.transpose(np.random.poisson(mean_noise, shape), [2, 0, 1])
+            t0 = torch.Tensor(poisson)
+            print(t0.shape)
+            self.imgs += t0
         return
 
     def __getitem__(self, index):
         imgs, masks, circles = self.imgs, self.masks, self.circles
-        img = torch.FloatTensor(imgs[index].toarray()).unsqueeze(0)
-        if self.noise > 0:
-            img += torch.rand_like(img) < self.noise
+        img = imgs[index].unsqueeze(0)
 
         n_circles = len(circles[index])
         x = circles[index][:, 0]

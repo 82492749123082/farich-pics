@@ -8,7 +8,7 @@ def test_initial():
     assert ds.imgs is None
     assert ds.masks is None
     assert ds.circles is None
-    assert ds.noise == 0.1
+    assert ds.noise == (0, 0.1)
 
 
 def test_load():
