@@ -333,7 +333,7 @@ class Augmentator:
     def get_y_board(n_ellipses, xc, yc, a, b, angle, n_photons):
         n0 = n_ellipses
         # transpose x<->y
-        return np.vstack((yc[:n0], xc[:n0], b[:n0], a[:n0], angle[:n0])).T
+        return np.vstack((yc[:n0], xc[:n0], b[:n0], a[:n0], -angle[:n0])).T
 
     def get_boards(size, num_boards, n_max):
         H = np.zeros((num_boards, size, size), dtype=int)
