@@ -33,11 +33,22 @@ class Dataset(torch.utils.data.Dataset):
         img = imgs[index].unsqueeze(0)
 
         n_circles = len(circles[index])
+        n0 = circles[index].shape[1]
         x = circles[index][:, 0]
         y = circles[index][:, 1]
-        r = circles[index][:, 2]
+        r1 = circles[index][:, 2]
+        r2 = r1
+        if n0 == 5:
+            x, y = x + 1, y + 1
+            phi = circles[index][:, 4]
+            a = circles[index][:, 2]
+            b = circles[index][:, 3]
+            tx = -np.arctan(b * np.tan(phi) / a)
+            ty = np.arctan(b / (a * np.tan(phi)))
+            r1 = np.abs(np.cos(phi) * a * np.cos(tx) - np.sin(phi) * b * np.sin(tx))
+            r2 = np.abs(np.sin(phi) * a * np.cos(ty) + np.cos(phi) * b * np.sin(ty))
         boxes = torch.FloatTensor(
-            np.vstack((x - 1.1 * r, y - 1.1 * r, x + 1.1 * r, y + 1.1 * r)).T
+            np.vstack((x - 1.1 * r1, y - 1.1 * r2, x + 1.1 * r1, y + 1.1 * r2)).T
         )
         labels = torch.ones(n_circles, dtype=torch.int64)
         masks = torch.FloatTensor([mask.toarray() for mask in masks[index]])
