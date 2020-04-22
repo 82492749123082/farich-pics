@@ -6,6 +6,7 @@ from scipy import sparse
 import pickle
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
+import cv2
 import torch
 from numba import jit, njit
 from numba.errors import (
@@ -56,10 +57,14 @@ class DataPreprocessing:
             self.y = np.append(self.y, y, axis=0)
         return
 
-    def __init__(self):
+    def __init__(self, ellipse_format=False):
+        """
+        ellipse_format
+        """
         self.X = None
         self.y = None
         self.df = None
+        self.ellipse_format = ellipse_format
 
     def parse_root(self, *rootFiles):
         for rootFile in rootFiles:
@@ -116,6 +121,9 @@ class DataPreprocessing:
                 .values
             )
 
+            if self.ellipse_format:
+                y = np.hstack((y, y[:, 2:3], np.zeros((y.shape[0], 1))))
+
             self.__write_data(X, y)
         return
 
@@ -123,6 +131,7 @@ class DataPreprocessing:
         for pickleFile in pickleFiles:
             with open(pickleFile, "rb") as f:
                 X, y = pickle.load(f)
+            self.ellipse_format = True if y.shape[1] == 5 else False
             self.__write_data(X, y)
         return
 
@@ -183,8 +192,8 @@ class DataPreprocessing:
         h_all = []
         mask_all = []
         for i in range(0, N_boards):
-            # if i % 5000 == 0:
-            #     print(i)
+            if i % 5000 == 0:
+                print(i)
             board, Y_res = self.generate_board(
                 board_size=board_size, N_circles=N_circles
             )
@@ -195,6 +204,16 @@ class DataPreprocessing:
 
     @jit(nopython=False)
     def generate_boards_randnum(self, board_size, N_circles, N_boards):
+
+        if self.ellipse_format:
+            print("Generate toy boards")
+            H, y = Augmentator.get_boards(board_size, N_boards, N_circles)
+            masks = Augmentator.create_masks(board_size, y)
+            H_all = [sparse.coo_matrix(x) for x in H]
+            masks_all = []
+            for m in masks:
+                masks_all.append([sparse.coo_matrix(x) for x in m])
+            return H_all, y, masks_all
         H_all = []
         h_all = []
         mask_all = []
@@ -290,6 +309,27 @@ class Augmentator:
         n_photons = np.random.poisson(Augmentator.photons_mean, (num_boards, n_max))
         return (xc, yc, a, b, angle, n_photons)
 
+    def create_masks(size, y_all):
+        masks = list()
+        for y in y_all:
+            masks_one = list()
+            for ellipse in y:
+                mask = np.zeros((size, size), dtype=np.int8)
+                e = ellipse.astype(int)
+                cv2.ellipse(
+                    mask,
+                    (e[0], e[1]),
+                    (e[2], e[3]),
+                    ellipse[4] * 180 / np.pi,
+                    0,
+                    360,
+                    1,
+                    -1,
+                )
+                masks_one.append(mask.astype(bool).T)  # transpose
+            masks.append(masks_one)
+        return masks
+
     def get_y_board(n_ellipses, xc, yc, a, b, angle, n_photons):
         n0 = n_ellipses
         return np.vstack((xc[:n0], yc[:n0], a[:n0], b[:n0], angle[:n0])).T
@@ -340,6 +380,7 @@ class Augmentator:
             )
             ax.add_artist(e)
             plt.scatter(x0, y0, marker="+", s=150)
+
         return
 
 
