@@ -39,11 +39,14 @@ class Dataset(torch.utils.data.Dataset):
         r1 = circles[index][:, 2]
         r2 = r1
         if n0 == 5:
-            ang1 = np.abs(
-                np.array([np.cos(circles[index][:, 4]), np.sin(circles[index][:, 4])]).T
-            )
-            r1 = np.max(circles[index][:, 2:4] * ang1, axis=1)
-            r2 = np.max(circles[index][:, 3:1:-1] * ang1, axis=1)
+            x, y = x + 1, y + 1
+            phi = circles[index][:, 4]
+            a = circles[index][:, 2]
+            b = circles[index][:, 3]
+            tx = -np.arctan(b * np.tan(phi) / a)
+            ty = np.arctan(b / (a * np.tan(phi)))
+            r1 = np.abs(np.cos(phi) * a * np.cos(tx) - np.sin(phi) * b * np.sin(tx))
+            r2 = np.abs(np.sin(phi) * a * np.cos(ty) + np.cos(phi) * b * np.sin(ty))
         boxes = torch.FloatTensor(
             np.vstack((x - 1.1 * r1, y - 1.1 * r2, x + 1.1 * r1, y + 1.1 * r2)).T
         )
