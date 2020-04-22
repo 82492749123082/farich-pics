@@ -326,13 +326,14 @@ class Augmentator:
                     1,
                     -1,
                 )
-                masks_one.append(mask.astype(bool).T)  # transpose
+                masks_one.append(mask.astype(bool))
             masks.append(masks_one)
         return masks
 
     def get_y_board(n_ellipses, xc, yc, a, b, angle, n_photons):
         n0 = n_ellipses
-        return np.vstack((xc[:n0], yc[:n0], a[:n0], b[:n0], angle[:n0])).T
+        # transpose x<->y
+        return np.vstack((yc[:n0], xc[:n0], b[:n0], a[:n0], angle[:n0])).T
 
     def get_boards(size, num_boards, n_max):
         H = np.zeros((num_boards, size, size), dtype=int)
