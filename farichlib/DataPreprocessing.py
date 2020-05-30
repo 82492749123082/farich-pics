@@ -29,7 +29,7 @@ class DataPreprocessing:
         xbins = x_size * chip_num_size
         return np.linspace(xmin, xmax, xbins)
 
-    def __get_board_size(self, info_arrays):
+    def get_board_size(self, info_arrays):
         x_size = info_arrays[b"num_side_x"][0]
         x_center = info_arrays[b"origin_pos._0"][0]
         chip_size = info_arrays[b"chip_size"][0]
@@ -66,12 +66,56 @@ class DataPreprocessing:
         self.df = None
         self.ellipse_format = ellipse_format
 
+    def process_root(self, *rootFiles):
+        for rootFile in rootFiles:
+            info_arrays = uproot.open(rootFile)["info_sim"].arrays()
+            raw_tree = uproot.open(rootFile)["raw_data"]
+            xedges, yedges = self.get_board_size(info_arrays)
+            df = raw_tree.pandas.df(branches=["hits.pos_chip._*"])
+            df = df.rename(
+                {
+                    "hits.pos_chip._0": "chipx",
+                    "hits.pos_chip._1": "chipy",
+                    "hits.pos_chip._2": "chipz",
+                },
+                axis=1,
+            )
+            df["chipx"] = np.digitize(df["chipx"], xedges)
+            df["chipy"] = np.digitize(df["chipy"], yedges)
+            df["data"] = np.ones(len(df))
+
+            xmin, xmax = df["chipx"].value_counts()[:2].index
+            ymin, ymax = df["chipy"].value_counts()[:2].index
+            params = np.array(
+                [
+                    (xmax + xmin) / 2,
+                    (ymax + ymin) / 2,
+                    abs(xmax - xmin),
+                    abs(ymax - ymin),
+                    0,
+                ]
+            )
+
+            X = (
+                df.groupby("entry")
+                .apply(
+                    lambda x: sparse.coo_matrix(
+                        (x["data"], (x["chipx"], x["chipy"])),
+                        shape=(len(xedges), len(yedges)),
+                    )
+                )
+                .values
+            )
+            y = np.broadcast_to(params, (len(X), 5))
+            self.__write_data(X, y)
+        return
+
     def parse_root(self, *rootFiles):
         for rootFile in rootFiles:
             info_arrays = uproot.open(rootFile)["info_sim"].arrays()
             raw_tree = uproot.open(rootFile)["raw_data"]
 
-            xedges, yedges = self.__get_board_size(info_arrays)
+            xedges, yedges = self.get_board_size(info_arrays)
             zerobin = np.digitize(0, xedges)
             df = raw_tree.pandas.df(
                 branches=["hits.pos_chip._*", "pos_primary._*", "dir_primary._*"]
@@ -146,17 +190,13 @@ class DataPreprocessing:
     def add_to_board(self, board, Y, arr, y):
         board_size = board.shape[0]
         # cropping self.X arrays to get better result
-        xc = y[0]
-        yc = y[1]
-        r = y[2]
-        xlow = int(xc - 1.5 * r) if (xc - 1.5 * r > 0) else 0
-        xhigh = (
-            int(xc + 1.5 * r) if (xc + 1.5 * r < arr.shape[0]) else (arr.shape[0] - 1)
-        )
-        ylow = int(yc - 1.5 * r) if (yc - 1.5 * r > 0) else 0
-        yhigh = (
-            int(yc + 1.5 * r) if (yc + 1.5 * r < arr.shape[1]) else (arr.shape[1] - 1)
-        )
+        xc, yc = y[0], y[1]
+        r = max(y[2], y[3]) / 2
+        xlow = int(max(xc - 1.5 * r, 0))
+        xhigh = int(min(xc + 1.5 * r, arr.shape[0] - 1))
+        ylow = int(max(yc - 1.5 * r, 0))
+        yhigh = int(min(yc + 1.5 * r, arr.shape[1] - 1))
+
         arr_ = arr.toarray()[xlow:xhigh, ylow:yhigh]
         arr = sparse.coo_matrix(arr_)
         xc = xc - xlow
@@ -168,8 +208,8 @@ class DataPreprocessing:
         board.row = np.concatenate((board.row, arr.row + x1))
         board.col = np.concatenate((board.col, arr.col + y1))
 
-        y = np.array([yc + y1, xc + x1, r])
-        Y = np.concatenate((Y, y))
+        yn = np.array([xc + x1, yc + y1, y[2], y[3], y[4]])
+        Y = np.concatenate((Y, yn))
         return board, Y
 
     def generate_board(self, board_size, N_circles, random_seed=0, shuffle=False):
@@ -183,7 +223,7 @@ class DataPreprocessing:
             H = self.X[loc_ind]
             h = self.y[loc_ind]
             newboard, Y_res = self.add_to_board(newboard, Y_res, H, h)
-        Y_res = np.reshape(Y_res, (-1, 3))
+        Y_res = np.reshape(Y_res, (-1, 5))
         return newboard, Y_res
 
     @jit(nopython=False)
@@ -204,16 +244,6 @@ class DataPreprocessing:
 
     @jit(nopython=False)
     def generate_boards_randnum(self, board_size, N_circles, N_boards):
-
-        if self.ellipse_format:
-            print("Generate toy boards")
-            H, y = Augmentator.get_boards(board_size, N_boards, N_circles)
-            masks = Augmentator.create_masks(board_size, y)
-            H_all = [sparse.coo_matrix(x) for x in H]
-            masks_all = []
-            for m in masks:
-                masks_all.append([sparse.coo_matrix(x) for x in m])
-            return H_all, y, masks_all
         H_all = []
         h_all = []
         mask_all = []
@@ -226,8 +256,29 @@ class DataPreprocessing:
             )
             H_all.append(board)
             h_all.append(Y_res)
-            mask_all.append(create_mask(board_size=board_size, Y_res=Y_res))
+        mask_all = self.create_masks(board_size, h_all)
         return H_all, h_all, mask_all
+
+    def create_masks(self, size, y_all):
+        masks = list()
+        for y in y_all:
+            masks_one = list()
+            for ellipse in y:
+                mask = np.zeros((size, size), dtype=np.int8)
+                e = ellipse.astype(int)
+                cv2.ellipse(
+                    mask,
+                    (e[0], e[1]),
+                    (e[2] // 2, e[3] // 2),
+                    ellipse[4] * 180 / np.pi,
+                    0,
+                    360,
+                    1,
+                    -1,
+                )
+                masks_one.append(mask.astype(bool).T)
+            masks.append(masks_one)
+        return masks
 
 
 @njit
