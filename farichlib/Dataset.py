@@ -55,7 +55,9 @@ class Dataset(torch.utils.data.Dataset):
         masks = torch.FloatTensor(
             [
                 mask.toarray()
-                if isinstance(mask, scipy.sparse.coo.coo_matrix)
+                if isinstance(
+                    mask, (scipy.sparse.coo.coo_matrix, scipy.sparse.csr.csr_matrix)
+                )
                 else mask
                 for mask in masks[index]
             ]
