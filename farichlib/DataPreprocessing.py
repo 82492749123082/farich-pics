@@ -44,7 +44,7 @@ class DataPreprocessing:
             self.y = np.append(self.y, y, axis=0)
         return
 
-    def __init__(self, ellipse_format=False):
+    def __init__(self, ellipse_format=True):
         """
         ellipse_format
         """
@@ -163,7 +163,7 @@ class DataPreprocessing:
             with open(pickleFile, "rb") as f:
                 X, y = pickle.load(f)
             if y.shape[1] != 5:
-                raise Exception('Old pickle, parse root again.')
+                raise Exception("Old pickle, parse root again.")
             self.ellipse_format = True
             self.__write_data(X, y)
         return
@@ -210,8 +210,8 @@ class DataPreprocessing:
 
         indices = np.random.randint(low=0, high=self.y.shape[0], size=N_circles)
         for loc_ind in indices:
-            H = self.X[loc_ind]
-            h = self.y[loc_ind]
+            H = self.X[loc_ind].copy()
+            h = self.y[loc_ind].copy()
             newboard, Y_res = self.add_to_board(newboard, Y_res, H, h)
         Y_res = np.reshape(Y_res, (-1, 5))
         return newboard, Y_res
@@ -257,7 +257,7 @@ class DataPreprocessing:
                 cv2.ellipse(
                     mask,
                     (e[0], e[1]),
-                    (e[2]//2, e[3]//2),
+                    (e[2] // 2, e[3] // 2),
                     ellipse[4],
                     0,
                     360,
@@ -306,13 +306,10 @@ class Augmentator:
 
     def rescale(H, y, zoom=None):  # center of ellipse is the center of input image (H)
         if zoom is None:
-            zoom = 0.7 + 0.5 * random.random()
+            zoom = 0.5 + random.random()
         h, w = H.shape
         xc, yc = h // 2, w // 2
-        if len(y) > 3:
-            y[2], y[3] = zoom * y[2], zoom * y[3]
-        else:
-            y[2] *= zoom
+        y[2], y[3] = zoom * y[2], zoom * y[3]
         rescaling = (zoom * np.array([H.row - xc, H.col - yc])).astype(int)
         H.row, H.col = rescaling[0] + xc, rescaling[1] + yc
         crops = (
