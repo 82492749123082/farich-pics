@@ -1,6 +1,7 @@
 import torch
 import pickle
 import numpy as np
+import scipy
 
 
 class Dataset(torch.utils.data.Dataset):
@@ -51,7 +52,14 @@ class Dataset(torch.utils.data.Dataset):
             np.vstack((x - 1.1 * r1, y - 1.1 * r2, x + 1.1 * r1, y + 1.1 * r2)).T
         )
         labels = torch.ones(n_circles, dtype=torch.int64)
-        masks = torch.FloatTensor([mask.toarray() for mask in masks[index]])
+        masks = torch.FloatTensor(
+            [
+                mask.toarray()
+                if isinstance(mask, scipy.sparse.coo.coo_matrix)
+                else mask
+                for mask in masks[index]
+            ]
+        )
         image_id = torch.LongTensor([index])
         area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
 

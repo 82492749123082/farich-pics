@@ -5,20 +5,8 @@ import random
 from scipy import sparse
 import pickle
 import matplotlib.pyplot as plt
-from matplotlib.patches import Ellipse
 import cv2
-from numba import jit, njit
-from numba.errors import (
-    NumbaDeprecationWarning,
-    NumbaPendingDeprecationWarning,
-    NumbaWarning,
-)
 import warnings
-
-# Suppress numba warnings
-warnings.simplefilter("ignore", category=NumbaDeprecationWarning)
-warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
-warnings.simplefilter("ignore", category=NumbaWarning)
 
 
 class DataPreprocessing:
@@ -110,6 +98,9 @@ class DataPreprocessing:
         return
 
     def parse_root(self, *rootFiles):
+        if self.ellipse_format is True:
+            self.process_root(*rootFiles)
+            return
         for rootFile in rootFiles:
             info_arrays = uproot.open(rootFile)["info_sim"].arrays()
             raw_tree = uproot.open(rootFile)["raw_data"]
@@ -163,10 +154,7 @@ class DataPreprocessing:
                 .agg({"px": "mean", "py": "mean", "radius": "median"})
                 .values
             )
-
-            if self.ellipse_format:
-                y = np.hstack((y, y[:, 2:3], np.zeros((y.shape[0], 1))))
-
+            y = np.hstack((y, y[:, 2:3], np.zeros((y.shape[0], 1))))
             self.__write_data(X, y)
         return
 
@@ -190,7 +178,7 @@ class DataPreprocessing:
         board_size = board.shape[0]
         # cropping self.X arrays to get better result
         xc, yc = y[0], y[1]
-        r = max(y[2], y[3]) / 2
+        r = max(y[2], y[3]) / 2 if self.ellipse_format is True else y[2]
         xlow = int(max(xc - 1.5 * r, 0))
         xhigh = int(min(xc + 1.5 * r, arr.shape[0] - 1))
         ylow = int(max(yc - 1.5 * r, 0))
@@ -223,10 +211,10 @@ class DataPreprocessing:
             H = self.X[loc_ind]
             h = self.y[loc_ind]
             newboard, Y_res = self.add_to_board(newboard, Y_res, H, h)
-        Y_res = np.reshape(Y_res, (-1, 5))
+        shape1 = 5 if self.ellipse_format else 3
+        Y_res = np.reshape(Y_res, (-1, shape1))
         return newboard, Y_res
 
-    @jit(nopython=False)
     def generate_boards(self, board_size, N_circles, N_boards):
         H_all = []
         h_all = []
@@ -242,7 +230,6 @@ class DataPreprocessing:
         mask_all = self.create_masks(board_size, h_all)
         return H_all, h_all, mask_all
 
-    @jit(nopython=False)
     def generate_boards_randnum(self, board_size, N_circles, N_boards):
         H_all = []
         h_all = []
@@ -269,7 +256,7 @@ class DataPreprocessing:
                 cv2.ellipse(
                     mask,
                     (e[0], e[1]),
-                    (e[2] // 2, e[3] // 2),
+                    (e[2]//2, e[3]//2),
                     ellipse[4],
                     0,
                     360,
@@ -299,6 +286,8 @@ def print_board(H, h):
 
 class Augmentator:
     def rotate(H, y, angle=None):  # center of ellipse is the center of input image (H)
+        if len(y) == 3:
+            return H
         if angle is None:
             angle = random.random() * 180
         h, w = H.shape
@@ -319,7 +308,10 @@ class Augmentator:
             zoom = 0.7 + 0.5 * random.random()
         h, w = H.shape
         xc, yc = h // 2, w // 2
-        y[2], y[3] = zoom * y[2], zoom * y[3]
+        if len(y) > 3:
+            y[2], y[3] = zoom * y[2], zoom * y[3]
+        else:
+            y[2] *= zoom
         rescaling = (zoom * np.array([H.row - xc, H.col - yc])).astype(int)
         H.row, H.col = rescaling[0] + xc, rescaling[1] + yc
         crops = (
