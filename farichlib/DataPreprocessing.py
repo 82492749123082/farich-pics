@@ -162,7 +162,9 @@ class DataPreprocessing:
         for pickleFile in pickleFiles:
             with open(pickleFile, "rb") as f:
                 X, y = pickle.load(f)
-            self.ellipse_format = True if y.shape[1] == 5 else False
+            if y.shape[1] != 5:
+                raise Exception('Old pickle, parse root again.')
+            self.ellipse_format = True
             self.__write_data(X, y)
         return
 
@@ -211,8 +213,7 @@ class DataPreprocessing:
             H = self.X[loc_ind]
             h = self.y[loc_ind]
             newboard, Y_res = self.add_to_board(newboard, Y_res, H, h)
-        shape1 = 5 if self.ellipse_format else 3
-        Y_res = np.reshape(Y_res, (-1, shape1))
+        Y_res = np.reshape(Y_res, (-1, 5))
         return newboard, Y_res
 
     def generate_boards(self, board_size, N_circles, N_boards):
