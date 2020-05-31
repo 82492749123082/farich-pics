@@ -7,7 +7,6 @@ import pickle
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
 import cv2
-import torch
 from numba import jit, njit
 from numba.errors import (
     NumbaDeprecationWarning,
@@ -199,8 +198,9 @@ class DataPreprocessing:
 
         arr_ = arr.toarray()[xlow:xhigh, ylow:yhigh]
         arr = sparse.coo_matrix(arr_)
-        xc = xc - xlow
-        yc = yc - ylow
+        arr = Augmentator.rotate(arr, y)
+        arr = Augmentator.rescale(arr, y)
+        xc, yc = xc - xlow, yc - ylow
 
         x1, y1 = np.random.randint(0, board.shape[0] - arr.shape[0], 2)
 
@@ -239,7 +239,7 @@ class DataPreprocessing:
             )
             H_all.append(board)
             h_all.append(Y_res)
-            mask_all.append(create_mask(board_size=board_size, Y_res=Y_res))
+        mask_all = self.create_masks(board_size, h_all)
         return H_all, h_all, mask_all
 
     @jit(nopython=False)
@@ -270,7 +270,7 @@ class DataPreprocessing:
                     mask,
                     (e[0], e[1]),
                     (e[2] // 2, e[3] // 2),
-                    ellipse[4] * 180 / np.pi,
+                    ellipse[4],
                     0,
                     360,
                     1,
@@ -279,33 +279,6 @@ class DataPreprocessing:
                 masks_one.append(mask.astype(bool).T)
             masks.append(masks_one)
         return masks
-
-
-@njit
-def create_mask_addit(board_size, Y_res):
-    # now only for circles
-    x = np.linspace(0, board_size, board_size)
-    y = np.linspace(0, board_size, board_size).reshape((-1, 1))
-    mask_joined = []
-    for index in range(Y_res.shape[0]):
-        x0 = Y_res[index][0]
-        y0 = Y_res[index][1]
-        R = Y_res[index][2]
-        circle = np.nonzero((x - x0) ** 2 + (y - y0) ** 2 <= R ** 2)
-        mask_joined.append(circle)
-    return mask_joined
-
-
-def create_mask(board_size, Y_res):
-    masks = create_mask_addit(board_size, Y_res)
-    return list(
-        map(
-            lambda x: sparse.csc_matrix(
-                (np.ones(len(x[0])), x), shape=(board_size, board_size)
-            ),
-            masks,
-        )
-    )
 
 
 def print_board(H, h):
@@ -325,115 +298,35 @@ def print_board(H, h):
 
 
 class Augmentator:
-    photons_mean = 35
-
-    @njit
-    def add_ellipse(H, xc, yc, a, b, angle, n_photons):
-        edges = np.linspace(0, H.shape[0] - 1, H.shape[0])
-
-        n0 = n_photons
-        t = np.random.rand(n0) * 2 * np.pi
-        e = np.random.randn(2, n0) * np.array([a, b]).reshape((2, -1)) * 0.04
-        x = np.vstack((a * np.cos(t), b * np.sin(t)))
-        M = np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]])
-        center = np.array([[xc for _ in range(n0)], [yc for _ in range(n0)]])
-
-        coords = M @ x + e + center
-        coords = np.digitize(coords, edges)
-        for x0, y0 in zip(coords[0], coords[1]):
-            H[x0][y0] += 1
-        return
-
-    def get_board(H, n_ellipses, xc, yc, a, b, angle, n_photons):
-        for _, x0, y0, a0, b0, angle0, n_photons0 in zip(
-            range(n_ellipses), xc, yc, a, b, angle, n_photons
-        ):
-            Augmentator.add_ellipse(H, x0, y0, a0, b0, angle0, n_photons0)
-        return
-
-    def get_ellipse_pars(size, num_boards, n_max):
-        a = np.random.randint(5, 15, (num_boards, n_max))
-        b = np.random.randint(5, 15, (num_boards, n_max))
-        xc = np.random.randint(a + b, size - a - b, (num_boards, n_max))
-        yc = np.random.randint(a + b, size - b - a, (num_boards, n_max))
-        angle = np.random.rand(num_boards, n_max) * np.pi
-        n_photons = np.random.poisson(Augmentator.photons_mean, (num_boards, n_max))
-        return (xc, yc, a, b, angle, n_photons)
-
-    def create_masks(size, y_all):
-        masks = list()
-        for y in y_all:
-            masks_one = list()
-            for ellipse in y:
-                mask = np.zeros((size, size), dtype=np.int8)
-                e = ellipse.astype(int)
-                cv2.ellipse(
-                    mask,
-                    (e[0], e[1]),
-                    (e[2], e[3]),
-                    ellipse[4] * 180 / np.pi,
-                    0,
-                    360,
-                    1,
-                    -1,
-                )
-                masks_one.append(mask.astype(bool))
-            masks.append(masks_one)
-        return masks
-
-    def get_y_board(n_ellipses, xc, yc, a, b, angle, n_photons):
-        n0 = n_ellipses
-        # transpose x<->y
-        return np.vstack((yc[:n0], xc[:n0], b[:n0], a[:n0], -angle[:n0])).T
-
-    def get_boards(size, num_boards, n_max):
-        H = np.zeros((num_boards, size, size), dtype=int)
-        y = []
-        n_ellipses = np.random.randint(1, n_max + 1, num_boards)
-        xc, yc, a, b, angle, n_photons = Augmentator.get_ellipse_pars(
-            size, num_boards, n_max
+    def rotate(H, y, angle=None):  # center of ellipse is the center of input image (H)
+        if angle is None:
+            angle = random.random() * 180
+        h, w = H.shape
+        xc, yc = h // 2, w // 2
+        y[-1] = angle
+        cos, sin = np.cos(angle * np.pi / 180), np.sin(angle * np.pi / 180)
+        M = np.array([[cos, -sin], [sin, cos]])
+        rot = (M @ np.array([H.row - xc, H.col - yc])).astype(int)
+        H.row, H.col = rot[0] + xc, rot[1] + yc
+        crops = (
+            (H.row < H.shape[0]) & (H.row >= 0) & (H.col < H.shape[1]) & (H.col >= 0)
         )
-        for i in range(num_boards):
-            n0 = n_ellipses[i]
-            y.append(
-                Augmentator.get_y_board(
-                    n0, xc[i], yc[i], a[i], b[i], angle[i], n_photons[i]
-                )
-            )
-            Augmentator.get_board(
-                H[i], n_ellipses[i], xc[i], yc[i], a[i], b[i], angle[i], n_photons[i]
-            )
-        return H, y
+        H.row, H.col, H.data = H.row[crops], H.col[crops], H.data[crops]
+        return H
 
-    def save_data_as_torch(H, y, filename):
-        with open(filename, "wb") as f:
-            pickle.dump((torch.Tensor(H), y), f)
-        return
-
-    def print_board(H, y):
-        fig = plt.figure(frameon=False, figsize=(8, 8))
-        ax = plt.Axes(fig, [0.0, 0.0, 1.0, (H.shape[1] / H.shape[0])])
-        fig.add_axes(ax)
-
-        xedges = np.linspace(0, H.shape[0], H.shape[0])
-        yedges = np.linspace(0, H.shape[1], H.shape[1])
-        Xg, Yg = np.meshgrid(xedges, yedges)
-        ax.pcolormesh(Xg, Yg, H.T, cmap="gnuplot")
-
-        for x0, y0, a0, b0, phi0 in y:
-            e = Ellipse(
-                (x0, y0),
-                2 * a0,
-                2 * b0,
-                180 * phi0 / np.pi,
-                fill=False,
-                edgecolor="green",
-                alpha=1,
-            )
-            ax.add_artist(e)
-            plt.scatter(x0, y0, marker="+", s=150)
-
-        return
+    def rescale(H, y, zoom=None):  # center of ellipse is the center of input image (H)
+        if zoom is None:
+            zoom = 0.7 + 0.5 * random.random()
+        h, w = H.shape
+        xc, yc = h // 2, w // 2
+        y[2], y[3] = zoom * y[2], zoom * y[3]
+        rescaling = (zoom * np.array([H.row - xc, H.col - yc])).astype(int)
+        H.row, H.col = rescaling[0] + xc, rescaling[1] + yc
+        crops = (
+            (H.row < H.shape[0]) & (H.row >= 0) & (H.col < H.shape[1]) & (H.col >= 0)
+        )
+        H.row, H.col, H.data = H.row[crops], H.col[crops], H.data[crops]
+        return H
 
 
 if __name__ == "__main__":
