@@ -6,10 +6,11 @@ from scipy import sparse
 import pickle
 import matplotlib.pyplot as plt
 import cv2
+import progressbar
 import warnings
 
 
-class DataPreprocessing:
+class DP:
     def get_axis_size(self, x_center, x_size, pmt_size, gap, chip_size, chip_num_size):
         xmin = x_center - (x_size * pmt_size + (x_size - 1) * gap + chip_size) / 2
         xmax = x_center + (x_size * pmt_size + (x_size - 1) * gap + chip_size) / 2
@@ -35,7 +36,7 @@ class DataPreprocessing:
 
         return (xedges, yedges)
 
-    def __write_data(self, X, y):
+    def _write_data(self, X, y):
         if (self.X is None) or (self.y is None):
             self.X = X
             self.y = y
@@ -44,26 +45,46 @@ class DataPreprocessing:
             self.y = np.append(self.y, y, axis=0)
         return
 
-    def __init__(self, ellipse_format=True):
-        """
-        ellipse_format
-        """
+    def __init__(self):
         self.X = None
         self.y = None
         self.df = None
-        self.ellipse_format = ellipse_format
 
-    def process_root(self, *rootFiles):
+    def parse_root(self, *rootFiles):
+        pass
+
+    def parse_pickle(self, *pickleFiles):
+        pass
+
+    def save_data(self, filename="data/temp.pkl"):
+        with open(filename, "wb") as f:
+            pickle.dump((self.X, self.y), f)
+        return
+
+
+class DataPreprocessing(DP):
+    def __init__(self, ellipse_format=True):
+        super().__init__()
+        self.ellipse_format = ellipse_format
+        if ellipse_format is False:
+            warnings.warn(
+                "This option will be deprecated in near future", DeprecationWarning
+            )
+
+    def __process_root(self, *rootFiles):
         for rootFile in rootFiles:
             info_arrays = uproot.open(rootFile)["info_sim"].arrays()
             raw_tree = uproot.open(rootFile)["raw_data"]
             xedges, yedges = self.get_board_size(info_arrays)
-            df = raw_tree.pandas.df(branches=["hits.pos_chip._*"])
+            df = raw_tree.pandas.df(
+                branches=["hits.pos_chip._*", "hits", "hits.time"]
+            ).query("hits>10")
             df = df.rename(
                 {
                     "hits.pos_chip._0": "chipx",
                     "hits.pos_chip._1": "chipy",
                     "hits.pos_chip._2": "chipz",
+                    "hits.time": "time",
                 },
                 axis=1,
             )
@@ -94,12 +115,12 @@ class DataPreprocessing:
                 .values
             )
             y = np.broadcast_to(params, (len(X), 5))
-            self.__write_data(X, y)
+            self._write_data(X, y)
         return
 
     def parse_root(self, *rootFiles):
         if self.ellipse_format is True:
-            self.process_root(*rootFiles)
+            self.__process_root(*rootFiles)
             return
         for rootFile in rootFiles:
             info_arrays = uproot.open(rootFile)["info_sim"].arrays()
@@ -155,7 +176,7 @@ class DataPreprocessing:
                 .values
             )
             y = np.hstack((y, y[:, 2:3], np.zeros((y.shape[0], 1))))
-            self.__write_data(X, y)
+            self._write_data(X, y)
         return
 
     def parse_pickle(self, *pickleFiles):
@@ -165,12 +186,7 @@ class DataPreprocessing:
             if y.shape[1] != 5:
                 raise Exception("Old pickle, parse root again.")
             self.ellipse_format = True
-            self.__write_data(X, y)
-        return
-
-    def save_data(self, filename="data/temp.pkl"):
-        with open(filename, "wb") as f:
-            pickle.dump((self.X, self.y), f)
+            self._write_data(X, y)
         return
 
     def get_images(self):
@@ -216,38 +232,30 @@ class DataPreprocessing:
         Y_res = np.reshape(Y_res, (-1, 5))
         return newboard, Y_res
 
-    def generate_boards(self, board_size, N_circles, N_boards):
-        H_all = []
-        h_all = []
-        mask_all = []
-        for i in range(0, N_boards):
-            if i % 5000 == 0:
-                print(i)
+    def __generate_boards(self, board_size, N_circles_min, N_circles_max, N_boards):
+        if board_size < 0:
+            raise ValueError("Board_size less than zero")
+        if N_circles_min < 0:
+            raise ValueError("Bad minimum number of circles")
+        if N_circles_min > N_circles_max:
+            raise ValueError("Minimum number of circles more than maximum")
+        if N_boards <= 0:
+            raise ValueError("N_boards must be more than zero")
+        H_all, h_all, mask_all = [], [], []
+        N_circles_rdm = np.random.randint(N_circles_min, N_circles_max + 1, N_boards)
+        for i in progressbar.progressbar(range(0, N_boards)):
             board, Y_res = self.generate_board(
-                board_size=board_size, N_circles=N_circles
+                board_size=board_size, N_circles=N_circles_rdm[i]
             )
             H_all.append(board)
             h_all.append(Y_res)
-        mask_all = self.create_masks(board_size, h_all)
+        mask_all = self.__create_masks(board_size, h_all)
         return H_all, h_all, mask_all
 
-    def generate_boards_randnum(self, board_size, N_circles, N_boards):
-        H_all = []
-        h_all = []
-        mask_all = []
-        for i in range(0, N_boards):
-            if i % 5000 == 0:
-                print(i)
-            N_circles_rdm = random.randint(1, N_circles)
-            board, Y_res = self.generate_board(
-                board_size=board_size, N_circles=N_circles_rdm
-            )
-            H_all.append(board)
-            h_all.append(Y_res)
-        mask_all = self.create_masks(board_size, h_all)
-        return H_all, h_all, mask_all
-
-    def create_masks(self, size, y_all):
+    def __create_masks(self, size, y_all):
+        """
+        create masks for all ellipses on each board
+        """
         masks = list()
         for y in y_all:
             masks_one = list()
@@ -267,6 +275,30 @@ class DataPreprocessing:
                 masks_one.append(mask.astype(bool).T)
             masks.append(masks_one)
         return masks
+
+    def generate_boards(self, board_size, N_circles, N_boards):
+        """
+        Generate `N_boards` boards with number rings equal `N_circles` per board
+        and with size equal `(board_size, board_size)`
+        Return `(H_all, h_all, mask_all)` - images, ellipses parameters, masks
+        """
+        return self.__generate_boards(board_size, N_circles, N_circles, N_boards)
+
+    def generate_boards_randnum(self, board_size, N_circles, N_boards):
+        """
+        Generate `N_boards` boards with number rings from `1` to `N_circles` per board
+        and with size equal `(board_size, board_size)`.
+        Return `(H_all, h_all, mask_all)` - images, ellipses parameters, masks
+        """
+        return self.__generate_boards(board_size, 1, N_circles, N_boards)
+
+    def save_boards(self, H_all, h_all, mask_all, filename):
+        """
+        save toy-boards to file (`filename`)
+        """
+        with open(filename, "wb") as f:
+            pickle.dump((H_all, h_all, mask_all), f)
+        return
 
 
 def print_board(H, h):
