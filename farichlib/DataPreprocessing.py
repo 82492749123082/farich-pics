@@ -288,6 +288,47 @@ class DataPreprocessing:
             pickle.dump((self.X, self.y), f)
         return
 
+    def generate_3d_board(self, board_size, N_circles):
+        indexes = np.random.randint(0, len(self.X), N_circles)
+        xr, yr = np.random.randint(0, board_size, (2, N_circles)) - self.y[indexes][
+            :, [0, 1]
+        ].T.astype(int)
+        tr = 3 * np.random.random(N_circles)
+        dr = np.arange(N_circles)
+        arr = np.empty(N_circles, object)
+        arr[:] = [row for row in np.array([xr, yr, tr, dr]).T]
+        boards = np.concatenate(self.X[indexes].copy() + arr, axis=0)
+        crop_ind = (
+            (boards.T[0] >= 0)
+            & (boards.T[0] < board_size)
+            & (boards.T[1] >= 0)
+            & (boards.T[1] < board_size)
+        )
+        return boards[crop_ind]
+
+    def __generate_3d_boards(self, board_size, N_circles_min, N_circles_max, N_boards):
+        H_all = []
+        for i in pg.progressbar(range(N_boards)):
+            N_circles = random.randint(N_circles_min, N_circles_max)
+            H_all.append(self.generate_3d_board(board_size, N_circles))
+        return H_all
+
+    def generate_3d_boards(self, board_size, N_circles, N_boards):
+        """
+        Generate `N_boards` boards with number rings equal `N_circles` per board
+        and with size equal `(board_size, board_size)`.
+        Return `H_all` - array of arrays with four columns `(x, y, time, ring_index)`
+        """
+        return self.__generate_3d_boards(board_size, N_circles, N_circles, N_boards)
+
+    def generate_3d_boards_randnum(self, board_size, N_circles, N_boards):
+        """
+        Generate `N_boards` boards with number rings from `1` to `N_circles` per board
+        and with size equal `(board_size, board_size)`.
+        Return `H_all` - array of arrays with four columns `(x, y, time, ring_index)`
+        """
+        return self.__generate_3d_boards(board_size, 1, N_circles, N_boards)
+
 
 def print_board(H, h):
     H = H.toarray()
