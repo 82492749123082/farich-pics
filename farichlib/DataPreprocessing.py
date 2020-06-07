@@ -61,7 +61,7 @@ class DataPreprocessing:
             raw_tree = uproot.open(rootFile)["raw_data"]
             xedges, yedges = self.get_board_size(info_arrays)
             df = raw_tree.pandas.df(
-                branches=["hits.pos_chip._*", "hits", "hits.time"], entrystop=10,
+                branches=["hits.pos_chip._*", "hits", "hits.time"],
             ).query("hits>10")
             df = df.rename(
                 {
