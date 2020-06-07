@@ -18,8 +18,8 @@ def test_axis_size():
 def test_parsing():
     dp = DataPreprocessing()
     dp.parse_pickle("tests/DataPreprocessing_example_data.pkl")
-    assert len(dp.X) == 10
-    assert len(dp.y) == 10
+    assert len(dp.X) == 20
+    assert len(dp.y) == 20
 
 
 def test_board_generation():
