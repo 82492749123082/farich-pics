@@ -6,11 +6,20 @@ from scipy import sparse
 import pickle
 import matplotlib.pyplot as plt
 import cv2
-import progressbar
+import progressbar as pg
 import warnings
 
 
-class DP:
+class DataPreprocessing:
+    def __init__(self, ellipse_format=True):
+        self.X = None
+        self.y = None
+        self.ellipse_format = ellipse_format
+        if ellipse_format is False:
+            warnings.warn(
+                "This option will be deprecated in near future", DeprecationWarning
+            )
+
     def get_axis_size(self, x_center, x_size, pmt_size, gap, chip_size, chip_num_size):
         xmin = x_center - (x_size * pmt_size + (x_size - 1) * gap + chip_size) / 2
         xmax = x_center + (x_size * pmt_size + (x_size - 1) * gap + chip_size) / 2
@@ -36,7 +45,7 @@ class DP:
 
         return (xedges, yedges)
 
-    def _write_data(self, X, y):
+    def __write_data(self, X, y):
         if (self.X is None) or (self.y is None):
             self.X = X
             self.y = y
@@ -45,39 +54,14 @@ class DP:
             self.y = np.append(self.y, y, axis=0)
         return
 
-    def __init__(self):
-        self.X = None
-        self.y = None
-        self.df = None
-
-    def parse_root(self, *rootFiles):
-        pass
-
-    def parse_pickle(self, *pickleFiles):
-        pass
-
-    def save_data(self, filename="data/temp.pkl"):
-        with open(filename, "wb") as f:
-            pickle.dump((self.X, self.y), f)
-        return
-
-
-class DataPreprocessing(DP):
-    def __init__(self, ellipse_format=True):
-        super().__init__()
-        self.ellipse_format = ellipse_format
-        if ellipse_format is False:
-            warnings.warn(
-                "This option will be deprecated in near future", DeprecationWarning
-            )
-
     def __process_root(self, *rootFiles):
+        print("ROOT handling")
         for rootFile in rootFiles:
             info_arrays = uproot.open(rootFile)["info_sim"].arrays()
             raw_tree = uproot.open(rootFile)["raw_data"]
             xedges, yedges = self.get_board_size(info_arrays)
             df = raw_tree.pandas.df(
-                branches=["hits.pos_chip._*", "hits", "hits.time"]
+                branches=["hits.pos_chip._*", "hits", "hits.time"], entrystop=10,
             ).query("hits>10")
             df = df.rename(
                 {
@@ -103,19 +87,10 @@ class DataPreprocessing(DP):
                     0,
                 ]
             )
-
-            X = (
-                df.groupby("entry")
-                .apply(
-                    lambda x: sparse.coo_matrix(
-                        (x["data"], (x["chipx"], x["chipy"])),
-                        shape=(len(xedges), len(yedges)),
-                    )
-                )
-                .values
-            )
+            grouped = df[["chipx", "chipy", "time", "data"]].groupby("entry")
+            X = np.array([group.values for name, group in pg.progressbar(grouped)])
             y = np.broadcast_to(params, (len(X), 5))
-            self._write_data(X, y)
+            self.__write_data(X, y)
         return
 
     def parse_root(self, *rootFiles):
@@ -176,7 +151,7 @@ class DataPreprocessing(DP):
                 .values
             )
             y = np.hstack((y, y[:, 2:3], np.zeros((y.shape[0], 1))))
-            self._write_data(X, y)
+            self.__write_data(X, y)
         return
 
     def parse_pickle(self, *pickleFiles):
@@ -186,33 +161,38 @@ class DataPreprocessing(DP):
             if y.shape[1] != 5:
                 raise Exception("Old pickle, parse root again.")
             self.ellipse_format = True
-            self._write_data(X, y)
+            self.__write_data(X, y)
         return
 
     def get_images(self):
         return (self.X, self.y)
 
     def add_to_board(self, board, Y, arr, y):
+        if board.shape[0] != board.shape[1]:
+            raise ValueError("Incorrect board sizes")
         board_size = board.shape[0]
-        # cropping self.X arrays to get better result
         xc, yc = y[0], y[1]
-        r = max(y[2], y[3]) / 2 if self.ellipse_format is True else y[2]
-        xlow = int(max(xc - 1.5 * r, 0))
-        xhigh = int(min(xc + 1.5 * r, arr.shape[0] - 1))
-        ylow = int(max(yc - 1.5 * r, 0))
-        yhigh = int(min(yc + 1.5 * r, arr.shape[1] - 1))
 
-        arr_ = arr.toarray()[xlow:xhigh, ylow:yhigh]
-        arr = sparse.coo_matrix(arr_)
-        arr = Augmentator.rotate(arr, y)
-        arr = Augmentator.rescale(arr, y)
-        xc, yc = xc - xlow, yc - ylow
+        arr_ = arr.T[[0, 1, 3]]  # x, y, data
+        arr_[0], xc = arr_[0] - xc, 0
+        arr_[1], yc = arr_[1] - yc, 0
+        Augmentator.rotate(arr_, y)
+        Augmentator.rescale(arr_, y)
 
-        x1, y1 = np.random.randint(0, board.shape[0] - arr.shape[0], 2)
+        x1, y1 = np.random.randint(0, board.shape[0], 2)
+        arr_[0], arr_[1] = arr_[0] + x1, arr_[1] + y1
+        crop_ind = (
+            (arr_[0] >= 0)
+            & (arr_[0] < board_size)
+            & (arr_[1] >= 0)
+            & (arr_[1] < board_size)
+        )
+        arr_ = arr_[:, crop_ind].astype(int)
+        xcoord, ycoord, data = arr_
 
-        board.data = np.concatenate((board.data, arr.data))
-        board.row = np.concatenate((board.row, arr.row + x1))
-        board.col = np.concatenate((board.col, arr.col + y1))
+        board.data = np.concatenate((board.data, data))
+        board.row = np.concatenate((board.row, xcoord))
+        board.col = np.concatenate((board.col, ycoord))
 
         yn = np.array([xc + x1, yc + y1, y[2], y[3], y[4]])
         Y = np.concatenate((Y, yn))
@@ -243,7 +223,7 @@ class DataPreprocessing(DP):
             raise ValueError("N_boards must be more than zero")
         H_all, h_all, mask_all = [], [], []
         N_circles_rdm = np.random.randint(N_circles_min, N_circles_max + 1, N_boards)
-        for i in progressbar.progressbar(range(0, N_boards)):
+        for i in pg.progressbar(range(0, N_boards)):
             board, Y_res = self.generate_board(
                 board_size=board_size, N_circles=N_circles_rdm[i]
             )
@@ -300,6 +280,14 @@ class DataPreprocessing(DP):
             pickle.dump((H_all, h_all, mask_all), f)
         return
 
+    def save_data(self, filename="data/temp.pkl"):
+        """
+        save parsed ROOT-files to lightweight pickle
+        """
+        with open(filename, "wb") as f:
+            pickle.dump((self.X, self.y), f)
+        return
+
 
 def print_board(H, h):
     H = H.toarray()
@@ -318,37 +306,35 @@ def print_board(H, h):
 
 
 class Augmentator:
-    def rotate(H, y, angle=None):  # center of ellipse is the center of input image (H)
+    """
+    static class as a set of methods to augment data
+    """
+
+    def rotate(H, y, angle=None):
+        """
+        rotation around `(0,0)`
+        """
         if len(y) == 3:
             return H
         if angle is None:
             angle = random.random() * 180
-        h, w = H.shape
-        xc, yc = h // 2, w // 2
-        y[-1] = angle
+        xc, yc = 0, 0
+        y[-1] += angle
+        xcoord, ycoord = H[[0, 1]]
         cos, sin = np.cos(angle * np.pi / 180), np.sin(angle * np.pi / 180)
         M = np.array([[cos, -sin], [sin, cos]])
-        rot = (M @ np.array([H.row - xc, H.col - yc])).astype(int)
-        H.row, H.col = rot[0] + xc, rot[1] + yc
-        crops = (
-            (H.row < H.shape[0]) & (H.row >= 0) & (H.col < H.shape[1]) & (H.col >= 0)
-        )
-        H.row, H.col, H.data = H.row[crops], H.col[crops], H.data[crops]
-        return H
+        rot = (M @ np.array([xcoord - xc, ycoord - yc])).astype(int)
+        H[[0, 1]] = rot[0] + xc, rot[1] + yc
+        return
 
-    def rescale(H, y, zoom=None):  # center of ellipse is the center of input image (H)
+    def rescale(H, y, zoom=None):  # rescale
         if zoom is None:
             zoom = 0.5 + random.random()
-        h, w = H.shape
-        xc, yc = h // 2, w // 2
+        xc, yc = 0, 0
         y[2], y[3] = zoom * y[2], zoom * y[3]
-        rescaling = (zoom * np.array([H.row - xc, H.col - yc])).astype(int)
-        H.row, H.col = rescaling[0] + xc, rescaling[1] + yc
-        crops = (
-            (H.row < H.shape[0]) & (H.row >= 0) & (H.col < H.shape[1]) & (H.col >= 0)
-        )
-        H.row, H.col, H.data = H.row[crops], H.col[crops], H.data[crops]
-        return H
+        rescaling = (zoom * np.array([H[0] - xc, H[1] - yc])).astype(int)
+        H[[0, 1]] = rescaling[0] + xc, rescaling[1] + yc
+        return
 
 
 if __name__ == "__main__":
