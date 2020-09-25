@@ -79,7 +79,7 @@ boardsGen.AddROOT("file3.root")
 ```python
 boardsGen = BoardsGenerator("file1.root")
 boardsGen.ClearROOT()
-boardsGen.AddROOTs("file3.root")
+boardsGen.AddROOT("file3.root")
 ```
 Доски будут генерироваться на основе событий из `"file3.root"` файла
 
@@ -114,7 +114,7 @@ boardsGen.GenerateBoards(1000)
 ```python
 boardsGen = BoardsGenerator("file1.root")
 boardsGen.GenerateBoards(1000)
-boardsGen.SaveBoards("saveBoards.csv")
+boardsGen.SaveBoards("saveBoards.json")
 ```
 Сгенерировать 1000 досок и записать их в файл `saveBoards.json` с полями `boards` и `sizes`
 
