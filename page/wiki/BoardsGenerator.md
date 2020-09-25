@@ -83,7 +83,7 @@ boardsGen.AddROOT("file3.root")
 ```
 Доски будут генерироваться на основе событий из `"file3.root"` файла
 
-### `BoardsGenerator.GenerateBoards(n_boards, n_rings=(1,1), size=(100, 100), freq=300, ticks=200, noise_level=100)`
+### `BoardsGenerator.GenerateBoards(n_boards, n_rings=(1,1), size=(100, 100), freq=300, ticks=200, noise_level=100, augmentations=[Augmentator.Shift])`
 Генерировать набор досок на основе событий из используемых ROOT-файлов
 
 #### Аргументы:
@@ -93,6 +93,7 @@ boardsGen.AddROOT("file3.root")
 * `freq`, частота вычитки (в кГц), по умолчанию 300 кГц
 * `ticks`, разрешение детектора по времени (в пкс), по умолчанию 200 пкс
 * `noise_level`, уровень шума в детекторе (в кГц/мм^2), по умолчанию 100 кГц/мм^2
+* `augmentations`, используемые аугментации для генерации досок, передаются в виде листа методов класса `Augmentator`. Подробнее об аугментациях [здесь](Augmentator.md)
 
 #### Указания:
 * Если параметры `size`, `freq`, `ticks` или `noise_level` изменятся при повторном вызове метода, то будет выбрасываться ошибка.
