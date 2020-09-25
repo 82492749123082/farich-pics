@@ -68,7 +68,7 @@ boardsGen = BoardsGenerator("file1.root", "file2.root")
 #### Пример:
 ```python
 boardsGen = BoardsGenerator("file1.root")
-boardsGen.AddROOTs("file3.root")
+boardsGen.AddROOT("file3.root")
 ```
 Доски будут генерироваться на основе событий из `"file1.root"`, `"file3.root"` файлов
 
