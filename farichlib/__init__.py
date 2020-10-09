@@ -1,2 +1,4 @@
-from .DataPreprocessing import DataPreprocessing, Augmentator
-from .Dataset import Dataset
+from .Augmentator import Augmentator
+from .BoardsGenerator import BoardsGenerator
+
+
