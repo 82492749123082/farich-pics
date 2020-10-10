@@ -3,18 +3,23 @@ import numpy as np
 from farichlib import Augmentator
 
 
+def equality_test(data1, data2):
+    return np.all(np.isclose(data1, data2))
+
+
 @pytest.mark.parametrize(
     "xShift, yShift, timeShift",
     [(0, 0, 0), (-10, -10, -10), (5, 5, 5), (32, -13, 4)],
 )
 def test_Shift(xShift, yShift, timeShift):
-    event = np.zeros((4, 11), dtype=int)
-    Augmentator.Shift(event, xShift, yShift, timeShift)
-    assert event.shape == (4, 11)
-    assert np.equal(event[0], xShift * np.ones(11))
-    assert np.equal(event[1], yShift * np.ones(11))
-    assert np.equal(event[2], timeShift * np.ones(11))
-    assert np.equal(event[3], np.zeros(11))
+    size = (11, 4)
+    event = np.zeros(size, dtype=int)
+    Augmentator.Shift(event, (100, 100, 100), xShift, yShift, timeShift)
+    assert event.shape == size
+    assert equality_test(event[:, 0], xShift * np.ones(11))
+    assert equality_test(event[:, 1], yShift * np.ones(11))
+    assert equality_test(event[:, 2], timeShift * np.ones(11))
+    assert equality_test(event[:, 3], np.zeros(11))
 
 
 @pytest.mark.parametrize(
@@ -22,32 +27,36 @@ def test_Shift(xShift, yShift, timeShift):
     [1, 2, 3, 0.5],
 )
 def test_Rescale(rescaleFactor):
-    event = np.ones((4, 27), dtype=int)
-    Augmentator.Rescale(event, rescaleFactor)
-    assert event.shape == (4, 27)
-    assert np.isclose(event[0], rescaleFactor * np.ones(27))
-    assert np.isclose(event[1], rescaleFactor * np.ones(27))
-    assert np.isclose(event[2], np.ones(27))
-    assert np.isclose(event[3], np.ones(27))
+    size = (27, 4)
+    one = 2 * np.ones(27)
+    event = 2 * np.ones(size, dtype=int)
+    Augmentator.Rescale(event, (100, 100, 100), rescaleFactor)
+    assert event.shape == size
+    assert equality_test(event[:, 0], rescaleFactor * one)
+    assert equality_test(event[:, 1], rescaleFactor * one)
+    assert equality_test(event[:, 2], one)
+    assert equality_test(event[:, 3], one)
 
 
 @pytest.mark.parametrize(
     "rotateAngle, xCenter, yCenter",
-    [(0, 0, 0), (180, 0, 0), (45, 1, 1)],
+    [(0, 2, 2), (180, 2, 2), (45, 1, 1)],
 )
 def test_Rotate(rotateAngle, xCenter, yCenter):
+    size = (27, 4)
     one = np.ones(27)
     ang = np.deg2rad(rotateAngle * one)
-    event = np.ones((4, 27), dtype=int)
-    Augmentator.Rotate(event, rotateAngle, xCenter, yCenter)
-    assert event.shape == (4, 27)
-    assert np.isclose(
-        event[0],
-        (1 - xCenter) * np.cos(ang) + (1 - yCenter) * np.sin(ang),
-    )
-    assert np.isclose(
-        event[1],
-        -(1 - xCenter) * np.sin(ang) + (1 - yCenter) * np.cos(ang),
-    )
-    assert np.isclose(event[2], ones)
-    assert np.isclose(event[3], ones)
+    event = np.ones(size, dtype=int)
+    Augmentator.Rotate(event, (100, 100, 100), rotateAngle, xCenter, yCenter)
+    assert event.shape == size
+    if rotateAngle == 0:
+        assert equality_test(event[:, 0], one)
+        assert equality_test(event[:, 1], one)
+    if rotateAngle == 180:
+        assert equality_test(event[:, 0], 3 * one)
+        assert equality_test(event[:, 1], 3 * one)
+    if rotateAngle == 45:
+        assert equality_test(event[:, 0], one)
+        assert equality_test(event[:, 1], one)
+    assert equality_test(event[:, 2], one)
+    assert equality_test(event[:, 3], one)
