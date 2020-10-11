@@ -76,7 +76,7 @@ class BoardsGenerator:
         self.__events = None
         
     def GenerateBoards(
-        n_boards, n_rings=1, size=(100,100), freq=300, 
+        self, n_boards, n_rings=1, size=(100,100), freq=300, 
         ticks=200, noise_level=100, augmentations=[Augmentator.Shift]
     ):
         if isinstance(n_boards, int):
@@ -105,35 +105,36 @@ class BoardsGenerator:
             raise ValueError("Board_size less than/or zero")
         
         if self.__boards_sizes is None:
-            self.__boards_sizes = (size[0], size[1], 1/freq/ticks)
+            self.__boards_sizes = (size[0], size[1], int(10**9/freq/ticks))
+        else:
+            if self.__boards_sizes is not (size[0], size[1], int(10**9/freq/ticks)):
+                raise Exception("self.__boards_sizes should match previous values")
+        
+        if self.__freq is None:
             self.__freq = freq
         else:
-            if (self.__boards_sizes is not (size[0], size[1], int(10**9/freq/ticks))
-                or self.__freq is not freq):
-                raise Exception("self.__boards_sizes and self.__freq should match previous values")
+            if self.__freq is not freq:
+                raise Exception("self.__freq should match previous value")
 
-            ###""" change 
-            
-        ###if self.__events is None:
-        ###    raise Exception("self.__events is None, please add rootfile first")
-        ###"""
-        
-        n_rings_rdm = np.random.randint(n_rings_min, n_rings_max + 1, n_boards)
-        for i in pg.progressbar(range(0, n_boards)):
-            board = self.__generate_board(
-                n_rings=n_rings_rdm[i], noise_level=noise_level, 
-                augmentations=augmentations  
-            )
-            if self.__boards is None:
-                self.__boards = board
-            else:
-                self.__boards = np.concatenate([self.__boards, board])
+        if self.__events is None:
+            pass
+        else:
+            n_rings_rdm = np.random.randint(n_rings_min, n_rings_max + 1, n_boards)
+            for i in pg.progressbar(range(0, n_boards)):
+                board = self.__generate_board(
+                    n_rings=n_rings_rdm[i], noise_level=noise_level, 
+                    augmentations=augmentations  
+                )
+                if self.__boards is None:
+                    self.__boards = board
+                else:
+                    self.__boards = np.concatenate((self.__boards, board))
         return
 
     def __generate_board(self, n_rings, noise_level, augmentations):
-        newboard = np.array([])
+        newboard = np.empty((0,4), int)
         indices = np.random.randint(low=0, high=self.__events[-1,-1], size=n_rings)
-        tedges = np.linspace(0, 1/(self.__freq*1000), self.__boards_size[2])
+        tedges = np.linspace(0, 1/(self.__freq*1000), self.__boards_sizes[2])
         for loc_ind in indices:
             loc_events = self.__events[self.__events[:,-1]==loc_ind]
             loc_events[:,2] = np.digitize(loc_events[:,2], tedges)
@@ -144,18 +145,29 @@ class BoardsGenerator:
             )
         return newboard
     
-    def __add_to_board(self, board, arr, noise_level, augmentaions):
+    def __add_to_board(self, board, arr, noise_level, augmentations):
         for aug in augmentations:
-            aug(arr, self.__boards_sizes)       
-        board = np.concatenate(board, arr)
+            aug(arr, self.__boards_sizes)
+        mask = (
+            (arr[:,0]>=0) & (arr[:,0]<self.__boards_sizes[0]) 
+            & (arr[:,1]>=0) & (arr[:,1]<self.__boards_sizes[1])
+            & (arr[:,2]>=0) & (arr[:,2]<self.__boards_sizes[2])
+        )
+        arr = arr[mask]
+        arr_ones = np.ones(arr.shape[0]).astype(int).reshape(-1,1)
+        arr = np.concatenate((arr,arr_ones), axis = 1)
+        board = np.concatenate((board, arr))
         return board
     
-    def SaveBoards(filepath):
-        
-        pass
+    def SaveBoards(self, filepath='temp.json'):
+        mydict = {'boards': self.__boards.tolist(), 'sizes': self.__boards_sizes}
+        with open(filepath, 'w') as json_file:
+                json.dump(mydict, json_file)
+        return
     
-    def GetBoards():
-        pass
+    def GetBoards(self):
+        return (self.__boards, self.__boards_sizes)
+        
 
 #    def parse_pickle(self, *pickleFiles):
 #        for pickleFile in pickleFiles:
