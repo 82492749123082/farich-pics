@@ -14,6 +14,9 @@ class Augmentator:
             y_shift = random.randint(0,ymax)
         if time_shift is None:
             time_shift = random.randint(0,tmax)
+        arr[:,0] += x_shift
+        arr[:,1] += y_shift
+        arr[:,2] += time_shift
         return
 
     def Rescale(arr, size, rescale_factor=None):

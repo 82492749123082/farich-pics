@@ -38,7 +38,15 @@ class BoardsGenerator:
             df["chipx"] = np.digitize(df["chipx"], xedges)
             df["chipy"] = np.digitize(df["chipy"], yedges)
             grouped = df[["chipx", "chipy", "time", "event"]].groupby("entry")
-            event = np.concatenate([group.values for name, group in pg.progressbar(grouped)])
+            
+            events = []
+            for i, (name, group) in enumerate(pg.progressbar(grouped)):
+                arr = group.values
+                arr[:, 3] = i
+                events.append(arr)
+            event = np.concatenate(events)
+            
+            #event = np.concatenate([group.values for name, group in pg.progressbar(grouped)])
             self.__write_data(event)
         return
         
@@ -120,7 +128,8 @@ class BoardsGenerator:
             pass
         else:
             n_rings_rdm = np.random.randint(n_rings_min, n_rings_max + 1, n_boards)
-            for i in pg.progressbar(range(0, n_boards)):
+            #for i in pg.progressbar(range(0, n_boards)):
+            for i in range(0, n_boards):
                 board = self.__generate_board(
                     n_rings=n_rings_rdm[i], noise_level=noise_level, 
                     augmentations=augmentations  
@@ -138,8 +147,13 @@ class BoardsGenerator:
         for loc_ind in indices:
             loc_events = self.__events[self.__events[:,-1]==loc_ind]
             loc_events[:,2] = np.digitize(loc_events[:,2], tedges)
+            
+            loc_events[:,0] -= np.median(loc_events[:,0])
+            loc_events[:,1] -= np.median(loc_events[:,1])
+            loc_events[:,2] -= np.median(loc_events[:,2])
+            
             newboard = self.__add_to_board(
-                board=newboard, arr=loc_events[:,:-1],
+                board=newboard, arr=loc_events[:,:-1].astype(int),
                 noise_level=noise_level,
                 augmentations=augmentations
             )
@@ -148,13 +162,15 @@ class BoardsGenerator:
     def __add_to_board(self, board, arr, noise_level, augmentations):
         for aug in augmentations:
             aug(arr, self.__boards_sizes)
+
         mask = (
             (arr[:,0]>=0) & (arr[:,0]<self.__boards_sizes[0]) 
             & (arr[:,1]>=0) & (arr[:,1]<self.__boards_sizes[1])
             & (arr[:,2]>=0) & (arr[:,2]<self.__boards_sizes[2])
         )
         arr = arr[mask]
-        arr_ones = np.ones(arr.shape[0]).astype(int).reshape(-1,1)
+        
+        arr_ones = np.ones(arr.shape[0], int).reshape(-1,1)
         arr = np.concatenate((arr,arr_ones), axis = 1)
         board = np.concatenate((board, arr))
         return board
