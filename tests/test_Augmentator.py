@@ -40,7 +40,7 @@ def test_Rescale(rescaleFactor):
 
 @pytest.mark.parametrize(
     "rotateAngle, xCenter, yCenter",
-    [(0, 2, 2), (180, 2, 2), (45, 1, 1)],
+    [(0, 2, 2), (180, 2, 2), (45, 1, 1), (90, 2, 2), (270, 2, 2)],
 )
 def test_Rotate(rotateAngle, xCenter, yCenter):
     size = (27, 4)
@@ -58,5 +58,11 @@ def test_Rotate(rotateAngle, xCenter, yCenter):
     if rotateAngle == 45:
         assert equality_test(event[:, 0], one)
         assert equality_test(event[:, 1], one)
+    if rotateAngle == 90:
+        assert equality_test(event[:, 0], 3 * one)
+        assert equality_test(event[:, 1], one)
+    if rotateAngle == 270:
+        assert equality_test(event[:, 0], one)
+        assert equality_test(event[:, 1], 3 * one)
     assert equality_test(event[:, 2], one)
     assert equality_test(event[:, 3], one)
