@@ -14,16 +14,6 @@ class Augmentator:
             y_shift = random.randint(0,ymax)
         if time_shift is None:
             time_shift = random.randint(0,tmax)
-        arr[:,0] += x_shift
-        arr[:,1] += y_shift
-        arr[:,2] += time_shift
-        
-        mask = (
-            (arr[:,0]>=0) & (arr[:,0]<xmax) 
-            & (arr[:,1]>=0) & (arr[:,1]<ymax)
-            & (arr[:,2]>=0) & (arr[:,2]<tmax)
-        )
-        arr = arr[mask]
         return
 
     def Rescale(arr, size, rescale_factor=None):
@@ -32,13 +22,6 @@ class Augmentator:
             rescale_factor = 0.5 + 1.5 * random.random()
         arr[:,0] = rescale_factor * arr[:,0]
         arr[:,1] = rescale_factor * arr[:,1]
-        
-        mask = (
-            (arr[:,0]>=0) & (arr[:,0]<xmax) 
-            & (arr[:,1]>=0) & (arr[:,1]<ymax)
-            & (arr[:,2]>=0) & (arr[:,2]<tmax)
-        )
-        arr = arr[mask]
         return
 
     def Rotate(arr, size, rotate_angle=None, x_center=None, y_center=None):
@@ -55,14 +38,7 @@ class Augmentator:
         M = np.array([[cos, -sin], [sin, cos]])
         rot = (M @ np.array(
             [xcoord - x_center, ycoord - y_center]
-        ))#.astype(int)
+        )).round()
     
-        arr[:,0], arr[:,1] = rot[0] + x_center, rot[1] + y_center
-        
-        mask = (
-            (arr[:,0]>=0) & (arr[:,0]<xmax) 
-            & (arr[:,1]>=0) & (arr[:,1]<ymax)
-            & (arr[:,2]>=0) & (arr[:,2]<tmax)
-        )
-        arr = arr[mask]
+        arr[:,0], arr[:,1] = rot[0] + x_center, rot[1] + y_center        
         return
