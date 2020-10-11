@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 import random
 import matplotlib.pyplot as plt
-import cv2
 import progressbar as pg
 import warnings
 from farichlib import Augmentator
