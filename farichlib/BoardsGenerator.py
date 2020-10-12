@@ -39,22 +39,20 @@ class BoardsGenerator:
             df["chipy"] = np.digitize(df["chipy"], yedges)
             grouped = df[["chipx", "chipy", "time", "event"]].groupby("entry")
             
-            events = []
+            df_events = []
             for i, (name, group) in enumerate(pg.progressbar(grouped)):
                 arr = group.values
                 arr[:, 3] = i
-                events.append(arr)
-            event = np.concatenate(events)
-            
-            #event = np.concatenate([group.values for name, group in pg.progressbar(grouped)])
-            self.__write_data(event)
+                df_events.append(arr)
+            events = np.concatenate(df_events)
+            self.__write_data(events)
         return
         
-    def __write_data(self, event):
+    def __write_data(self, events):
         if self.__events is None:
-            self.__events = event
+            self.__events = events
         else:
-            self.__events = np.vstack([self.__events, event])            
+            self.__events = np.vstack([self.__events, events])
         return
     
     def get_axis_size(self, x_center, x_size, pmt_size, gap, chip_size, chip_num_size):
@@ -115,21 +113,21 @@ class BoardsGenerator:
         if self.__boards_sizes is None:
             self.__boards_sizes = (size[0], size[1], int(10**9/freq/ticks))
         else:
-            if self.__boards_sizes is not (size[0], size[1], int(10**9/freq/ticks)):
+            if self.__boards_sizes != (size[0], size[1], int(10**9/freq/ticks)):
                 raise Exception("self.__boards_sizes should match previous values")
-        
+
         if self.__freq is None:
             self.__freq = freq
         else:
-            if self.__freq is not freq:
+            if self.__freq != freq:
                 raise Exception("self.__freq should match previous value")
 
         if self.__events is None:
             pass
         else:
             n_rings_rdm = np.random.randint(n_rings_min, n_rings_max + 1, n_boards)
-            #for i in pg.progressbar(range(0, n_boards)):
-            for i in range(0, n_boards):
+            for i in pg.progressbar(range(0, n_boards)):
+            #for i in range(0, n_boards):
                 board = self.__generate_board(
                     n_rings=n_rings_rdm[i], noise_level=noise_level, 
                     augmentations=augmentations  
