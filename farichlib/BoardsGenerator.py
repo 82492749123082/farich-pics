@@ -35,17 +35,21 @@ class BoardsGenerator:
             df["chipx"] = np.digitize(df["chipx"], xedges)
             df["chipy"] = np.digitize(df["chipy"], yedges)
             grouped = df[["chipx", "chipy", "time", "event"]].groupby("entry")
-            event = np.concatenate(
-                [group.values for name, group in pg.progressbar(grouped)]
-            )
-            self.__write_data(event)
+
+            df_events = []
+            for i, (name, group) in enumerate(pg.progressbar(grouped)):
+                arr = group.values
+                arr[:, 3] = i
+                df_events.append(arr)
+            events = np.concatenate(df_events)
+            self.__write_data(events)
         return
 
-    def __write_data(self, event):
+    def __write_data(self, events):
         if self.__events is None:
-            self.__events = event
+            self.__events = events
         else:
-            self.__events = np.vstack([self.__events, event])
+            self.__events = np.vstack([self.__events, events])
         return
 
     def get_axis_size(self, x_center, x_size, pmt_size, gap, chip_size, chip_num_size):
@@ -112,17 +116,13 @@ class BoardsGenerator:
         if self.__boards_sizes is None:
             self.__boards_sizes = (size[0], size[1], int(10 ** 9 / freq / ticks))
         else:
-            if self.__boards_sizes is not (
-                size[0],
-                size[1],
-                int(10 ** 9 / freq / ticks),
-            ):
+            if self.__boards_sizes != (size[0], size[1], int(10 ** 9 / freq / ticks)):
                 raise Exception("self.__boards_sizes should match previous values")
 
         if self.__freq is None:
             self.__freq = freq
         else:
-            if self.__freq is not freq:
+            if self.__freq != freq:
                 raise Exception("self.__freq should match previous value")
 
         if self.__events is None:
@@ -130,6 +130,7 @@ class BoardsGenerator:
         else:
             n_rings_rdm = np.random.randint(n_rings_min, n_rings_max + 1, n_boards)
             for i in pg.progressbar(range(0, n_boards)):
+                # for i in range(0, n_boards):
                 board = self.__generate_board(
                     n_rings=n_rings_rdm[i],
                     noise_level=noise_level,
@@ -148,9 +149,14 @@ class BoardsGenerator:
         for loc_ind in indices:
             loc_events = self.__events[self.__events[:, -1] == loc_ind]
             loc_events[:, 2] = np.digitize(loc_events[:, 2], tedges)
+
+            loc_events[:, 0] -= np.median(loc_events[:, 0])
+            loc_events[:, 1] -= np.median(loc_events[:, 1])
+            loc_events[:, 2] -= np.median(loc_events[:, 2])
+
             newboard = self.__add_to_board(
                 board=newboard,
-                arr=loc_events[:, :-1],
+                arr=loc_events[:, :-1].astype(int),
                 noise_level=noise_level,
                 augmentations=augmentations,
             )
@@ -159,6 +165,7 @@ class BoardsGenerator:
     def __add_to_board(self, board, arr, noise_level, augmentations):
         for aug in augmentations:
             aug(arr, self.__boards_sizes)
+
         mask = (
             (arr[:, 0] >= 0)
             & (arr[:, 0] < self.__boards_sizes[0])
@@ -168,7 +175,8 @@ class BoardsGenerator:
             & (arr[:, 2] < self.__boards_sizes[2])
         )
         arr = arr[mask]
-        arr_ones = np.ones(arr.shape[0]).astype(int).reshape(-1, 1)
+
+        arr_ones = np.ones(arr.shape[0], int).reshape(-1, 1)
         arr = np.concatenate((arr, arr_ones), axis=1)
         board = np.concatenate((board, arr))
         return board
