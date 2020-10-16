@@ -14,7 +14,13 @@ def equality_test(data1, data2):
 def test_Shift(xShift, yShift, timeShift):
     size = (11, 4)
     event = np.zeros(size, dtype=int)
-    Augmentator.Shift(event, (100, 100, 100), xShift, yShift, timeShift)
+    Augmentator.Shift(
+        event,
+        size=(100, 100, 100),
+        x_shift=xShift,
+        y_shift=yShift,
+        time_shift=timeShift,
+    )
     assert event.shape == size
     assert equality_test(event[:, 0], xShift * np.ones(11))
     assert equality_test(event[:, 1], yShift * np.ones(11))
@@ -30,7 +36,7 @@ def test_Rescale(rescaleFactor):
     size = (27, 4)
     one = 2 * np.ones(27)
     event = 2 * np.ones(size, dtype=int)
-    Augmentator.Rescale(event, (100, 100, 100), rescaleFactor)
+    Augmentator.Rescale(event, size=(100, 100, 100), rescale_factor=rescaleFactor)
     assert event.shape == size
     assert equality_test(event[:, 0], rescaleFactor * one)
     assert equality_test(event[:, 1], rescaleFactor * one)
@@ -47,7 +53,13 @@ def test_Rotate(rotateAngle, xCenter, yCenter):
     one = np.ones(27)
     ang = np.deg2rad(rotateAngle * one)
     event = np.ones(size, dtype=int)
-    Augmentator.Rotate(event, (100, 100, 100), rotateAngle, xCenter, yCenter)
+    Augmentator.Rotate(
+        event,
+        size=(100, 100, 100),
+        rotate_angle=rotateAngle,
+        x_center=xCenter,
+        y_center=yCenter,
+    )
     assert event.shape == size
     if rotateAngle == 0:
         assert equality_test(event[:, 0], one)

@@ -12,13 +12,20 @@ class BoardsGenerator:
         self.__boards = None
         self.__boards_sizes = None
         self.__freq = None
+        self.__chip_size = None
         self.AddROOT(*rootFiles)
 
     def AddROOT(self, *rootFiles):
         for rootFile in rootFiles:
             info_arrays = uproot.open(rootFile)["info_sim"].arrays()
             raw_tree = uproot.open(rootFile)["raw_data"]
-            xedges, yedges = self.get_board_size(info_arrays)
+            xedges, yedges, chip_size = self.get_board_size(info_arrays)
+
+            if chip_size is None:
+                self.__chip_size = chip_size
+            elif self.__chip_size != chip_size:
+                raise Exception("self.__chip_size should match previous value")
+
             df = raw_tree.pandas.df(
                 branches=["hits.pos_chip._*", "hits", "hits.time", "id_event"],
             ).query("hits>10")
@@ -73,7 +80,7 @@ class BoardsGenerator:
         yedges = self.get_axis_size(
             y_center, y_size, pmt_size, gap, chip_size, chip_num_size
         )
-        return (xedges, yedges)
+        return (xedges, yedges, chip_size)
 
     def ClearROOT(self):
         self.__events = None
@@ -115,15 +122,13 @@ class BoardsGenerator:
 
         if self.__boards_sizes is None:
             self.__boards_sizes = (size[0], size[1], int(10 ** 9 / freq / ticks))
-        else:
-            if self.__boards_sizes != (size[0], size[1], int(10 ** 9 / freq / ticks)):
-                raise Exception("self.__boards_sizes should match previous values")
+        elif self.__boards_sizes != (size[0], size[1], int(10 ** 9 / freq / ticks)):
+            raise Exception("self.__boards_sizes should match previous values")
 
         if self.__freq is None:
             self.__freq = freq
-        else:
-            if self.__freq != freq:
-                raise Exception("self.__freq should match previous value")
+        elif self.__freq != freq:
+            raise Exception("self.__freq should match previous value")
 
         if self.__events is None:
             pass
@@ -153,19 +158,27 @@ class BoardsGenerator:
             loc_events[:, 0] -= np.median(loc_events[:, 0])
             loc_events[:, 1] -= np.median(loc_events[:, 1])
             loc_events[:, 2] -= np.median(loc_events[:, 2])
+            loc_events[:, 3] = np.ones(loc_events.shape[0])
 
             newboard = self.__add_to_board(
                 board=newboard,
-                arr=loc_events[:, :-1].astype(int),
+                arr=loc_events.astype(int),
                 noise_level=noise_level,
                 augmentations=augmentations,
             )
+
+        Augmentator.Noise(
+            newboard,
+            size=self.__boards_sizes,
+            noise_level=noise_level,
+            chip_size=self.__chip_size,
+        )
+
         return newboard
 
-    def __add_to_board(self, board, arr, noise_level, augmentations):
+    def __add_to_board(self, board, arr, augmentations):
         for aug in augmentations:
-            aug(arr, self.__boards_sizes)
-
+            aug(arr, size=self.__boards_sizes)
         mask = (
             (arr[:, 0] >= 0)
             & (arr[:, 0] < self.__boards_sizes[0])
