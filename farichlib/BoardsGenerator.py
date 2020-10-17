@@ -21,7 +21,7 @@ class BoardsGenerator:
             raw_tree = uproot.open(rootFile)["raw_data"]
             xedges, yedges, chip_size = self.get_board_size(info_arrays)
 
-            if chip_size is None:
+            if self.__chip_size is None:
                 self.__chip_size = chip_size
             elif self.__chip_size != chip_size:
                 raise Exception("self.__chip_size should match previous value")
@@ -141,6 +141,9 @@ class BoardsGenerator:
                     noise_level=noise_level,
                     augmentations=augmentations,
                 )
+                id_board_array = np.ones((boars.shape[0],1), int)*i                
+                board = np.concatenate((board,id_board_array), axis=1)
+                
                 if self.__boards is None:
                     self.__boards = board
                 else:
@@ -151,6 +154,7 @@ class BoardsGenerator:
         newboard = np.empty((0, 4), int)
         indices = np.random.randint(low=0, high=self.__events[-1, -1], size=n_rings)
         tedges = np.linspace(0, 1 / (self.__freq * 1000), self.__boards_sizes[2])
+        
         for loc_ind in indices:
             loc_events = self.__events[self.__events[:, -1] == loc_ind]
             loc_events[:, 2] = np.digitize(loc_events[:, 2], tedges)
@@ -159,11 +163,10 @@ class BoardsGenerator:
             loc_events[:, 1] -= np.median(loc_events[:, 1])
             loc_events[:, 2] -= np.median(loc_events[:, 2])
             loc_events[:, 3] = np.ones(loc_events.shape[0])
-
+            
             newboard = self.__add_to_board(
                 board=newboard,
                 arr=loc_events.astype(int),
-                noise_level=noise_level,
                 augmentations=augmentations,
             )
 
@@ -189,8 +192,6 @@ class BoardsGenerator:
         )
         arr = arr[mask]
 
-        arr_ones = np.ones(arr.shape[0], int).reshape(-1, 1)
-        arr = np.concatenate((arr, arr_ones), axis=1)
         board = np.concatenate((board, arr))
         return board
 
