@@ -4,7 +4,7 @@ from farichlib import BoardsGenerator
 
 @pytest.mark.parametrize(
     "n_boards, sizeX, sizeY",
-    [(1, 100, 432), (10, 14, 12), (13, 93, 13), (88, 144, 144)],
+    [(1, 10, 12), (10, 74, 72), (13, 93, 63), (88, 144, 144)],
 )
 def test_noise_generator(n_boards, sizeX, sizeY):
     bg = BoardsGenerator("tests/testTree.root")
@@ -13,4 +13,7 @@ def test_noise_generator(n_boards, sizeX, sizeY):
     assert sizes[0] == sizeX
     assert sizes[1] == sizeY
     assert boards.shape[1] == 5
-    assert (boards[4, :]).max() == n_boards - 1
+    bd = bg.GetBoards()
+    print(bd)
+    assert (boards[:, 4]).max() == n_boards - 1
+

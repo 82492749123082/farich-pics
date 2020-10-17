@@ -58,20 +58,3 @@ class Augmentator:
         arr[:, 0], arr[:, 1] = rot[0] + x_center, rot[1] + y_center
         return
 
-    def Noise(arr, **data):
-        noise_level = data["noise_level"] if "noise_level" in data else None
-        xmax, ymax, tmax = data["size"]
-        chip_size = data["chip_size"] if "chip_size" in data else None
-        if chip_size is None:
-            raise Exception("To generate noise chip_size should be given")
-
-        fr = noise_level * 10 ** 3 * (xmax * ymax * chip_size ** 2)
-        N_to_generate = int(fr * tmax)
-
-        x_noise = np.random.randint(low=0, high=xmax, size=N_to_generate)
-        y_noise = np.random.randint(low=0, high=ymax, size=N_to_generate)
-        t_noise = np.random.randint(low=0, high=tmax, size=N_to_generate)
-
-        # for i in range(N_to_generate):
-        # arr = np.concatenate([arr, [x_noise[i], y_noise[i], t_noise[i], 0]], axis=0)
-        return np.concatenate([arr, [x_noise, y_noise, t_noise, 0]], axis=0)
