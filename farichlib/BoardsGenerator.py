@@ -19,7 +19,7 @@ class BoardsGenerator:
         for rootFile in rootFiles:
             info_arrays = uproot.open(rootFile)["info_sim"].arrays()
             raw_tree = uproot.open(rootFile)["raw_data"]
-            xedges, yedges, chip_size = self.get_board_size(info_arrays)
+            xedges, yedges, chip_size = self.__get_board_size(info_arrays)
 
             if self.__chip_size is None:
                 self.__chip_size = chip_size
@@ -59,13 +59,15 @@ class BoardsGenerator:
             self.__events = np.vstack([self.__events, events])
         return
 
-    def get_axis_size(self, x_center, x_size, pmt_size, gap, chip_size, chip_num_size):
+    def __get_axis_size(
+        self, x_center, x_size, pmt_size, gap, chip_size, chip_num_size
+    ):
         xmin = x_center - (x_size * pmt_size + (x_size - 1) * gap + chip_size) / 2
         xmax = x_center + (x_size * pmt_size + (x_size - 1) * gap + chip_size) / 2
         xbins = x_size * chip_num_size
         return np.linspace(xmin, xmax, xbins)
 
-    def get_board_size(self, info_arrays):
+    def __get_board_size(self, info_arrays):
         x_size = info_arrays[b"num_side_x"][0]
         x_center = info_arrays[b"origin_pos._0"][0]
         chip_size = info_arrays[b"chip_size"][0]
@@ -74,10 +76,10 @@ class BoardsGenerator:
         gap = info_arrays[b"gap"][0]
         y_size = info_arrays[b"num_side_y"][0]
         y_center = info_arrays[b"origin_pos._1"][0]
-        xedges = self.get_axis_size(
+        xedges = self.__get_axis_size(
             x_center, x_size, pmt_size, gap, chip_size, chip_num_size
         )
-        yedges = self.get_axis_size(
+        yedges = self.__get_axis_size(
             y_center, y_size, pmt_size, gap, chip_size, chip_num_size
         )
         return (xedges, yedges, chip_size)
@@ -93,7 +95,7 @@ class BoardsGenerator:
         freq=300,
         ticks=200,
         noise_level=100,
-        augmentations=[Augmentator.Shift],
+        augmentations=[Augmentator.Shift, Augmentator.Rotate, Augmentator.Rescale],
     ):
         if isinstance(n_boards, int):
             pass
@@ -134,16 +136,16 @@ class BoardsGenerator:
             n_rings_rdm = np.zeros(n_boards, int)
         else:
             n_rings_rdm = np.random.randint(n_rings_min, n_rings_max + 1, n_boards)
-        
+
         for i in pg.progressbar(range(0, n_boards)):
             board = self.__generate_board(
-                    n_rings=n_rings_rdm[i],
-                    noise_level=noise_level,
-                    augmentations=augmentations,
+                n_rings=n_rings_rdm[i],
+                noise_level=noise_level,
+                augmentations=augmentations,
             )
-            id_board_array = np.ones((board.shape[0], 1), int)*i                
-            board = np.concatenate((board,id_board_array), axis=1)
-            
+            id_board_array = np.ones((board.shape[0], 1), int) * i
+            board = np.concatenate((board, id_board_array), axis=1)
+
             if self.__boards is None:
                 self.__boards = board
             else:
@@ -155,30 +157,39 @@ class BoardsGenerator:
         if self.__events is not None:
             indices = np.random.randint(low=0, high=self.__events[-1, -1], size=n_rings)
             tedges = np.linspace(0, 1 / (self.__freq * 1000), self.__boards_sizes[2])
-        
+
             for loc_ind in indices:
-                loc_events = self.__events[self.__events[:, -1] == loc_ind]
+                loc_events = self.__events[self.__events[:, -1] == loc_ind].copy()
                 loc_events[:, 2] = np.digitize(loc_events[:, 2], tedges)
-                
+
                 loc_events[:, 0] -= np.median(loc_events[:, 0])
                 loc_events[:, 1] -= np.median(loc_events[:, 1])
                 loc_events[:, 2] -= np.median(loc_events[:, 2])
                 loc_events[:, 3] = np.ones(loc_events.shape[0])
-            
+
                 newboard = self.__add_to_board(
-                           board=newboard,
-                           arr=loc_events.astype(int),
-                          augmentations=augmentations,
+                    board=newboard,
+                    arr=loc_events.astype(int),
+                    augmentations=augmentations,
                 )
 
-            noise_pixels = noise_level * self.__chip_size**2 * \
-                           self.__boards_sizes[0] * self.__boards_sizes[1] / self.__freq   
+            noise_pixels = (
+                noise_level
+                * self.__chip_size ** 2
+                * self.__boards_sizes[0]
+                * self.__boards_sizes[1]
+                / self.__freq
+            )
 
-        
         else:
-            noise_pixels = noise_level * 9 * \
-            self.__boards_sizes[0] * self.__boards_sizes[1] / self.__freq   
-                       
+            noise_pixels = (
+                noise_level
+                * 9
+                * self.__boards_sizes[0]
+                * self.__boards_sizes[1]
+                / self.__freq
+            )
+
         newboard = self.__add_noise(
             board=newboard,
             noise_pixels=int(noise_pixels),
@@ -188,18 +199,15 @@ class BoardsGenerator:
 
     def __add_noise(self, board, noise_pixels):
         xmax, ymax, tmax = self.__boards_sizes
-        
-        x_noise = np.random.randint(low=0, high=xmax, size=noise_pixels).reshape((-1,1))
-        y_noise = np.random.randint(low=0, high=ymax, size=noise_pixels).reshape((-1,1))
-        t_noise = np.random.randint(low=0, high=tmax, size=noise_pixels).reshape((-1,1))
-        noise_index = np.zeros((noise_pixels,1), int)
-        
+
+        x_noise = np.random.randint(low=0, high=xmax, size=(noise_pixels, 1))
+        y_noise = np.random.randint(low=0, high=ymax, size=(noise_pixels, 1))
+        t_noise = np.random.randint(low=0, high=tmax, size=(noise_pixels, 1))
+        noise_index = np.zeros((noise_pixels, 1), int)
+
         noise_events = np.concatenate((x_noise, y_noise, t_noise, noise_index), axis=1)
         return np.concatenate((board, noise_events), axis=0)
-        #print("add noie", board)
-        #return 
 
-    
     def __add_to_board(self, board, arr, augmentations):
         for aug in augmentations:
             aug(arr, size=self.__boards_sizes)
