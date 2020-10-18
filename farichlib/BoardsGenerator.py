@@ -131,54 +131,59 @@ class BoardsGenerator:
             raise Exception("self.__freq should match previous value")
 
         if self.__events is None:
-            pass
+            n_rings_rdm = np.zeros(n_boards, int)
         else:
             n_rings_rdm = np.random.randint(n_rings_min, n_rings_max + 1, n_boards)
-            for i in pg.progressbar(range(0, n_boards)):
-                board = self.__generate_board(
+        
+        for i in pg.progressbar(range(0, n_boards)):
+            board = self.__generate_board(
                     n_rings=n_rings_rdm[i],
                     noise_level=noise_level,
                     augmentations=augmentations,
-                )
-                id_board_array = np.ones((board.shape[0], 1), int)*i                
-                board = np.concatenate((board,id_board_array), axis=1)
-                
-                if self.__boards is None:
-                    self.__boards = board
-                else:
-                    self.__boards = np.concatenate((self.__boards, board))
+            )
+            id_board_array = np.ones((board.shape[0], 1), int)*i                
+            board = np.concatenate((board,id_board_array), axis=1)
+            
+            if self.__boards is None:
+                self.__boards = board
+            else:
+                self.__boards = np.concatenate((self.__boards, board))
         return
 
     def __generate_board(self, n_rings, noise_level, augmentations):
         newboard = np.empty((0, 4), int)
-        indices = np.random.randint(low=0, high=self.__events[-1, -1], size=n_rings)
-        tedges = np.linspace(0, 1 / (self.__freq * 1000), self.__boards_sizes[2])
+        if self.__events is not None:
+            indices = np.random.randint(low=0, high=self.__events[-1, -1], size=n_rings)
+            tedges = np.linspace(0, 1 / (self.__freq * 1000), self.__boards_sizes[2])
         
-        for loc_ind in indices:
-            loc_events = self.__events[self.__events[:, -1] == loc_ind]
-            loc_events[:, 2] = np.digitize(loc_events[:, 2], tedges)
-
-            loc_events[:, 0] -= np.median(loc_events[:, 0])
-            loc_events[:, 1] -= np.median(loc_events[:, 1])
-            loc_events[:, 2] -= np.median(loc_events[:, 2])
-            loc_events[:, 3] = np.ones(loc_events.shape[0])
+            for loc_ind in indices:
+                loc_events = self.__events[self.__events[:, -1] == loc_ind]
+                loc_events[:, 2] = np.digitize(loc_events[:, 2], tedges)
+                
+                loc_events[:, 0] -= np.median(loc_events[:, 0])
+                loc_events[:, 1] -= np.median(loc_events[:, 1])
+                loc_events[:, 2] -= np.median(loc_events[:, 2])
+                loc_events[:, 3] = np.ones(loc_events.shape[0])
             
-            newboard = self.__add_to_board(
-                board=newboard,
-                arr=loc_events.astype(int),
-                augmentations=augmentations,
-            )
+                newboard = self.__add_to_board(
+                           board=newboard,
+                           arr=loc_events.astype(int),
+                          augmentations=augmentations,
+                )
 
-        noise_pixels = noise_level * self.__chip_size**2 * \
-                       self.__boards_sizes[0] * self.__boards_sizes[1] / self.__freq   
+            noise_pixels = noise_level * self.__chip_size**2 * \
+                           self.__boards_sizes[0] * self.__boards_sizes[1] / self.__freq   
+
+        
+        else:
+            noise_pixels = noise_level * 9 * \
+            self.__boards_sizes[0] * self.__boards_sizes[1] / self.__freq   
                        
         newboard = self.__add_noise(
             board=newboard,
             noise_pixels=int(noise_pixels),
         )
 
-#        print("newboard", newboard)
-        
         return newboard
 
     def __add_noise(self, board, noise_pixels):
