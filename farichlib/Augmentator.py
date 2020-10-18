@@ -26,7 +26,7 @@ class Augmentator:
         return
 
     def Rescale(arr, **data):
-        xmax, ymax, tmax = data["size"]
+        # xmax, ymax, tmax = data["size"]
         rescale_factor = data["rescale_factor"] if "rescale_factor" in data else None
         if rescale_factor is None:
             rescale_factor = 0.5 + 1.5 * random.random()
@@ -57,4 +57,3 @@ class Augmentator:
 
         arr[:, 0], arr[:, 1] = rot[0] + x_center, rot[1] + y_center
         return
-
