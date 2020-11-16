@@ -15,11 +15,11 @@ class Augmentator:
             data["time_shift"] if "time_shift" in data else None,
         )
         if x_shift is None:
-            x_shift = random.randint(0, xmax)
+            x_shift = np.random.randint(0, xmax)
         if y_shift is None:
-            y_shift = random.randint(0, ymax)
+            y_shift = np.random.randint(0, ymax)
         if time_shift is None:
-            time_shift = random.randint(0, tmax)
+            time_shift = np.random.randint(0, tmax)
         arr[:, 0] += x_shift
         arr[:, 1] += y_shift
         arr[:, 2] += time_shift
@@ -44,9 +44,9 @@ class Augmentator:
         if rotate_angle is None:
             rotate_angle = random.randint(0, 360)
         if x_center is None:
-            x_center = random.random() * xmax
+            x_center = 0
         if y_center is None:
-            y_center = random.random() * ymax
+            y_center = 0
 
         xcoord, ycoord = arr[:, 0], arr[:, 1]
         cos, sin = np.cos(rotate_angle * np.pi / 180), np.sin(

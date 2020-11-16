@@ -95,7 +95,7 @@ class BoardsGenerator:
         freq=300,
         ticks=200,
         noise_level=100,
-        augmentations=[Augmentator.Shift, Augmentator.Rotate, Augmentator.Rescale],
+        augmentations=[Augmentator.Rotate, Augmentator.Rescale, Augmentator.Shift],
     ):
         if isinstance(n_boards, int):
             pass
@@ -165,11 +165,12 @@ class BoardsGenerator:
                 loc_events[:, 0] -= np.median(loc_events[:, 0])
                 loc_events[:, 1] -= np.median(loc_events[:, 1])
                 loc_events[:, 2] -= np.median(loc_events[:, 2])
+
                 loc_events[:, 3] = np.ones(loc_events.shape[0])
 
                 newboard = self.__add_to_board(
                     board=newboard,
-                    arr=loc_events.astype(int),
+                    arr=loc_events,
                     augmentations=augmentations,
                 )
 
