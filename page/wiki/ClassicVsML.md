@@ -5,17 +5,16 @@
 ## Работа алгоритма машинного обучения
 
 Для разделения сигнальных и фоновых пикселов в детекторе Farich мы 
-использовали [Minkowski Engine
-net](https://github.com/NVIDIA/MinkowskiEngine) - удобный инструмент,
-позволяющий осуществлять операции с разреженными данными, и
-собственную небольшую сверточную нейронную сеть (см.
-[код](https://colab.research.google.com/drive/1ljftwmqe19-c-599EU9eDCdjy6fRLjiJ?usp=sharing))
-Для наших целей генерировалась 1000 досок с 500 кругами, 800 из которых
+использовали простую нейронную сеть архитектуры [U-Net](https://arxiv.org/abs/1505.04597), реализованную в [Minkowski Engine](https://github.com/NVIDIA/MinkowskiEngine) - библиотеке, обеспечивающей эффективные механизмы работы с разреженными данными (с помощью [Sparse Convolutional Neural Networks](https://www.cv-foundation.org/openaccess/content_cvpr_2015/papers/Liu_Sparse_Convolutional_Neural_2015_CVPR_paper.pdf)). 
+
+Для наших целей генерировалась 1000 досок с 500 кругами на каждой, 800 из которых
 использовались для тренировки нейронной сети. В качестве лосс-функции 
 использовалась кросс-энтропия. Метрики проверялись на оставшихся 200 досках.
 
+На google colab лежит [код](https://colab.research.google.com/drive/1ljftwmqe19-c-599EU9eDCdjy6fRLjiJ?usp=sharing) машинного алгоритма.
+
 Время обучения нейронной сети составило менее одного часа. 
-Время работы ML-алгоритма на одной entry составляет 
+Время работы ML-алгоритма на одной entry составляет `~178 ms` (Google Colab, Tesla T4)
 
 ![Результаты](../sources/Results_neural.jpg)
 
