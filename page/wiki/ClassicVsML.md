@@ -22,7 +22,7 @@
 
 В качестве классического алгоритма был использован
 `Algorithms.classic_algo` из `farichlib`. Для наших целей
-генерировалось 100 досок по 100 кругов в каждой (см. [код](https://github.com/82492749123082/farich-pics/blob/dev_yana/ClassicVsMl.ipynb))
+генерировалось 100 досок по 100 кругов в каждой (см. [код](https://github.com/82492749123082/farich-pics/blob/dev_yana/notebooks/ClassicVsMl.ipynb))
 
 Время работы классического алгоритма на одной entry составляет `~3 ms` (Intel Core i5 8250U)
 
