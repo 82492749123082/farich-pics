@@ -5,6 +5,7 @@
 
 Rings detection for FARICH
 
+**Status: This repository is not supported**
 
 ## Neural network (nn)
 
