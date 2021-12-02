@@ -1,9 +1,10 @@
 # FARICH-pics
 
 [![Build Status](https://travis-ci.com/82492749123082/farich-pics.svg?branch=dev)](https://travis-ci.com/82492749123082/farich-pics)
-[![Quick run in Colab (dev-ветка)](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/82492749123082/farich-pics/blob/dev/notebooks/CirclesNN.ipynb) 
+[![Quick run in Colab (old_freezed_0.0.2-ветка)](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/82492749123082/farich-pics/blob/old_freezed_0.0.2/notebooks/CirclesNN.ipynb) 
 
 Rings detection for FARICH
+
 
 ## Neural network (nn)
 
@@ -12,7 +13,7 @@ We have trained nn to detect rings with [this tutorial](https://pytorch.org/tuto
 Dataset contains **100x100px** boards with **one ring** on each and uniform **noise 1%**.
 
 Technical details you can see in [the notebook](notebooks/CirclesNN.ipynb)
-[![Quick run in Colab (dev-ветка)](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/82492749123082/farich-pics/blob/dev/notebooks/CirclesNN.ipynb) 
+[![Quick run in Colab (old_freezed_0.0.2-ветка)](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/82492749123082/farich-pics/blob/old_freezed_0.0.2/notebooks/CirclesNN.ipynb) 
 
 ### Results
 
@@ -35,7 +36,7 @@ Most problems from such images but even we cannot detect there rings. Why should
 ## NN for many circles
 
 We also trained nn for many circles (see [notebook](notebooks/ManyCirclesNN.ipynb))
-[![Quick run in Colab (dev-ветка)](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/82492749123082/farich-pics/blob/dev/notebooks/ManyCirclesNN.ipynb)
+<!-- [![Quick run in Colab (old_freezed_0.0.2-ветка)](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/82492749123082/farich-pics/blob/old_freezed_0.0.2/notebooks/ManyCirclesNN.ipynb) -->
 
 ### Results
 Precision and recall vs treshold predictor score:
